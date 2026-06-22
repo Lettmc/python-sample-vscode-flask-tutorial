@@ -37,7 +37,7 @@ services:
       - key: COUNCIL_EYES_MODEL
         value: google/gemini-2.0-flash-001
       - key: COUNCIL_ANALYST_MODEL
-        value: deepseek/deepseek-chat
+        value: meta-llama/llama-4-maverick
       - key: COUNCIL_AGENT_MODEL
         value: nousresearch/hermes-3-llama-3.1-70b
       - key: COUNCIL_NARRATOR_MODEL

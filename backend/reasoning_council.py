@@ -64,7 +64,7 @@ SEATS = {
         "enabled": os.environ.get("COUNCIL_EYES_ENABLED", "1") == "1",
     },
     "analyst": {
-        "model":   os.environ.get("COUNCIL_ANALYST_MODEL", "deepseek/deepseek-chat"),
+        "model":   os.environ.get("COUNCIL_ANALYST_MODEL", "meta-llama/llama-4-maverick"),
         "enabled": os.environ.get("COUNCIL_ANALYST_ENABLED", "1") == "1",
     },
     "agent": {
