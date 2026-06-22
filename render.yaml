@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: fleetwatch-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: FW_CLOUD_TOKEN
+        generateValue: true
+      - key: FW_MAX_EVENTS
+        value: "5000"
+      - key: FW_DB_PATH
+        value: /tmp/fleetwatch.db
+      - key: FW_SNAP_DIR
+        value: /tmp/fw_snapshots
+    healthCheckPath: /health
+    plan: free
