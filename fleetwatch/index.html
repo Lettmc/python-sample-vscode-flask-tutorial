@@ -642,6 +642,11 @@
       </div>
     </div>
 
+    <div style="padding:8px 18px 4px; font-size:10px; display:flex; align-items:center; gap:6px; color:var(--text-dim);">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--text-dim);display:inline-block;" id="cloudDot"></span>
+      <span id="cloudIndicator">Cloud: not configured</span>
+    </div>
+
     <div class="sidebar-footer">
       <div class="avatar" id="avatarInitials">ML</div>
       <div class="user-info">
@@ -756,6 +761,25 @@
             <div class="mini-card-title">Live Cameras</div>
             <div class="cam-grid" id="camGrid">
               <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Cloud Backend Stats -->
+          <div class="mini-card" id="cloudStatsCard" style="display:none;">
+            <div class="mini-card-title">Cloud Backend</div>
+            <div style="font-size:11px; display:flex; flex-direction:column; gap:5px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text-dim)">Total Events</span>
+                <span id="cloudTotal" style="color:var(--text);font-weight:500">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--escalate)">High Severity</span>
+                <span id="cloudHigh" style="color:var(--escalate);font-weight:600">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--observe)">Low Severity</span>
+                <span id="cloudLow" style="color:var(--observe);font-weight:600">—</span>
+              </div>
             </div>
           </div>
 
@@ -887,6 +911,33 @@
             <span class="meta-val" id="metaEventType">—</span>
             <span class="meta-edit">Edit</span>
           </div>
+          <div class="meta-row">
+            <span class="meta-key">Threat Score</span>
+            <span class="meta-val" id="metaThreatScore">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Action</span>
+            <span class="meta-val" id="metaAction">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row" id="feedbackRow" style="display:none;">
+            <span class="meta-key">Feedback</span>
+            <span class="meta-val" style="display:flex;gap:6px;">
+              <button class="btn-resolve" style="padding:4px 10px;font-size:11px;" onclick="submitFeedback('false_alarm')">False Alarm</button>
+              <button class="btn-resolve" style="padding:4px 10px;font-size:11px;color:var(--escalate);border-color:rgba(239,68,68,0.3);" onclick="submitFeedback('real_threat')">Real Threat</button>
+            </span>
+            <span class="meta-edit"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Council Verdict Panel -->
+      <div id="councilPanel" style="display:none; grid-column:1/-1; margin-top:14px;">
+        <div class="stat-card">
+          <div class="stat-label" style="margin-bottom:10px;">Reasoning Council Verdict</div>
+          <div id="councilNarrative" style="font-size:13px;line-height:1.7;color:var(--text);margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" id="councilSeats"></div>
         </div>
       </div>
     </div><!-- /detail -->
@@ -950,6 +1001,15 @@
           </div>
         </div>
       </div>
+
+      <!-- Reasoning Council seat activity — visible when cloud is connected -->
+      <div class="stat-card" id="councilActivityCard" style="display:none;">
+        <div class="stat-label" style="margin-bottom:10px;">Reasoning Council — Seat Activity</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;" id="councilSeatGrid">
+          <!-- Populated by updateAIIntel when cloud events present -->
+        </div>
+      </div>
+
       <div class="stat-card">
         <div class="stat-label">Recent AI Descriptions</div>
         <div id="aiDescList" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;"></div>
@@ -1137,10 +1197,16 @@
 
 // ── Config ──────────────────────────────────────────────────
 const POLL_INTERVAL_MS    = 10000;
+const CLOUD_POLL_MS       = 15000;
 const SNAPSHOT_URL        = '/axis-cgi/jpg/image.cgi?resolution=640x360';
 const BASICINFO_URL       = '/axis-cgi/basicdeviceinfo.cgi';
 const AOA_URL             = '/local/objectanalytics/control.cgi';
 const HEALTH_STORAGE_KEY  = 'fw_events';
+
+// Cloud backend — set FW_CLOUD_URL / FW_CLOUD_TOKEN in FixedIT env vars;
+// they are injected as meta tags by the helper script, or default to empty.
+const FW_CLOUD_URL   = (document.querySelector('meta[name="fw-cloud-url"]')   || {}).content || localStorage.getItem('fw_cloud_url')   || '';
+const FW_CLOUD_TOKEN = (document.querySelector('meta[name="fw-cloud-token"]') || {}).content || localStorage.getItem('fw_cloud_token') || '';
 
 // ── State ────────────────────────────────────────────────────
 let events        = [];
@@ -1148,6 +1214,7 @@ let cameras       = [];
 let deviceInfo    = {};
 let aoaScenarios  = [];
 let currentDetail = null;
+let cloudStats    = {};
 let filterPriority = 0;  // 0=all, 1=escalate, 2=challenge, 3=observe
 let filterType     = 0;  // 0=all, 1=security, 2=safety, 3=ops
 const PRIORITY_LABELS = ['All Priorities','ESCALATE','CHALLENGE','OBSERVE'];
@@ -1202,6 +1269,111 @@ async function vapixPost(url, body) {
     if (!r.ok) throw new Error(r.status);
     return await r.json();
   } catch(e) { return null; }
+}
+
+// ── Cloud Backend API ────────────────────────────────────────
+async function cloudGet(path) {
+  if (!FW_CLOUD_URL) return null;
+  try {
+    const r = await fetch(FW_CLOUD_URL + path, {
+      headers: { 'Authorization': `Bearer ${FW_CLOUD_TOKEN}` }
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+async function cloudPost(path, body) {
+  if (!FW_CLOUD_URL) return null;
+  try {
+    const r = await fetch(FW_CLOUD_URL + path, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${FW_CLOUD_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+async function loadCloudEvents() {
+  const [evData, stats] = await Promise.all([
+    cloudGet(`/api/events?limit=50&token=${FW_CLOUD_TOKEN}`),
+    cloudGet(`/api/stats?token=${FW_CLOUD_TOKEN}`)
+  ]);
+
+  if (stats) {
+    cloudStats = stats;
+    updateCloudStats(stats);
+  }
+
+  if (!evData || !Array.isArray(evData) || evData.length === 0) return;
+
+  // Merge cloud events — cloud events have an `id` field; avoid duplicates
+  const existingIds = new Set(events.map(e => e.id));
+  const newEvs = evData
+    .filter(ce => !existingIds.has('cloud-' + ce.id))
+    .map(ce => cloudEventToLocal(ce));
+
+  if (newEvs.length > 0) {
+    events = [...newEvs, ...events].sort((a, b) => b.ts - a.ts);
+    saveEvents();
+    renderAlerts();
+    renderActivityTable();
+    updateBadges();
+    updateAIIntel();
+  }
+
+  // Update cloud indicator
+  const ind = document.getElementById('cloudIndicator');
+  if (ind) { ind.style.color = 'var(--online)'; ind.textContent = 'Cloud Connected'; }
+}
+
+function cloudEventToLocal(ce) {
+  const verdict = ce.verdict || {};
+  const ts = ce.created_at ? new Date(ce.created_at).getTime() : Date.now();
+  const opLevel = (ce.operator_level || verdict.operator_level || 'OBSERVE').toUpperCase();
+  const levelMap = { ESCALATE: 'ESCALATE', CHALLENGE: 'CHALLENGE', OBSERVE: 'OBSERVE' };
+  const level = levelMap[opLevel] || 'OBSERVE';
+  const prioMap = { ESCALATE: 'Critical Priority', CHALLENGE: 'Moderate Priority', OBSERVE: 'Low Priority' };
+  return {
+    id: 'cloud-' + ce.id,
+    cloudId: ce.id,
+    level,
+    priority: prioMap[level],
+    title: ce.narrative || verdict.narrative || `${ce.class || 'Object'} detected in ${ce.zone || 'zone'}`,
+    description: verdict.visual_description || ce.narrative || '',
+    time: new Date(ts).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}),
+    date: new Date(ts).toLocaleDateString('en-US'),
+    ts,
+    location: ce.site || 'FleetWatch Site',
+    zone: ce.zone || verdict.site || '—',
+    sensors: ce.camera_id || '—',
+    types: ['Security'],
+    status: ce.resolved ? 'Resolved' : 'Open',
+    clips: ce.snapshot_path ? 1 : 0,
+    snapshotId: ce.id,
+    verdict,
+    threatScore: verdict.threat_score || ce.threat_score,
+    recommendedAction: verdict.recommended_action || '—',
+    seatsUsed: verdict.seats_used || [],
+    narrative: verdict.narrative || '',
+    cloudSource: true
+  };
+}
+
+function updateCloudStats(stats) {
+  if (stats.total !== undefined) setText('cloudTotal', stats.total.toString());
+  if (stats.high  !== undefined) setText('cloudHigh',  stats.high.toString());
+  if (stats.low   !== undefined) setText('cloudLow',   stats.low.toString());
+}
+
+async function resolveCloudEvent(cloudId) {
+  return await cloudPost(`/api/events/${cloudId}/resolve`, {});
+}
+
+async function sendCloudFeedback(cloudId, label) {
+  return await cloudPost(`/api/events/${cloudId}/feedback`, { label });
 }
 
 // ── Device Info ──────────────────────────────────────────────
@@ -1480,13 +1652,22 @@ function addEvent(ev) {
 function resolveCurrentEvent() {
   if (!currentDetail) return;
   const ev = events.find(e => e.id === currentDetail.id);
-  if (ev) { ev.status = 'Resolved'; saveEvents(); }
+  if (ev) {
+    ev.status = 'Resolved';
+    saveEvents();
+    if (ev.cloudSource && ev.cloudId) resolveCloudEvent(ev.cloudId);
+  }
   renderAlerts();
   updateBadges();
   renderActivityTable();
-  setText('metaStatus','<span style="color:var(--online);font-weight:600;">Resolved</span>');
   document.getElementById('metaStatus').innerHTML = '<span style="color:var(--online);font-weight:600;">Resolved</span>';
   toast('Event resolved');
+}
+
+async function submitFeedback(label) {
+  if (!currentDetail || !currentDetail.cloudSource) return;
+  const result = await sendCloudFeedback(currentDetail.cloudId, label);
+  toast(result ? `Feedback sent: ${label.replace('_',' ')}` : 'Feedback queued (offline)');
 }
 
 function clearLocalEvents() {
@@ -1618,7 +1799,36 @@ function openDetail(id) {
   setText('detailTimestamp', `${ev.date} ${ev.time}`);
   document.getElementById('evidenceTotal').textContent = ev.clips || 1;
   document.getElementById('evDot2').style.display = ev.clips >= 2 ? 'block' : 'none';
-  document.getElementById('detailSnapshot').src = getSnapshotUrl(1);
+
+  // Snapshot: cloud events show stored snapshot, else live VAPIX
+  if (ev.cloudSource && ev.snapshotId && FW_CLOUD_URL) {
+    document.getElementById('detailSnapshot').src = `${FW_CLOUD_URL}/api/snapshots/${ev.snapshotId}`;
+  } else {
+    document.getElementById('detailSnapshot').src = getSnapshotUrl(1);
+  }
+
+  // Threat score + recommended action
+  setText('metaThreatScore', ev.threatScore !== undefined ? `${ev.threatScore}/100` : '—');
+  setText('metaAction', ev.recommendedAction || '—');
+
+  // Cloud feedback row — only for cloud-sourced events
+  const feedRow = document.getElementById('feedbackRow');
+  feedRow.style.display = ev.cloudSource ? 'flex' : 'none';
+
+  // Reasoning Council panel
+  const panel = document.getElementById('councilPanel');
+  if (ev.cloudSource && (ev.narrative || ev.seatsUsed?.length)) {
+    panel.style.display = 'block';
+    document.getElementById('councilNarrative').textContent = ev.narrative || ev.description;
+    const seatColors = { eyes:'#a78bfa', analyst:'#60a5fa', agent:'#34d399', narrator:'#f59e0b' };
+    document.getElementById('councilSeats').innerHTML = (ev.seatsUsed || []).map(s => `
+      <span style="background:rgba(0,0,0,0.3);border:1px solid ${seatColors[s]||'var(--border)'};color:${seatColors[s]||'var(--text-mid)'};
+        border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">
+        ${s === 'eyes' ? '👁' : s === 'analyst' ? '🧠' : s === 'agent' ? '⚡' : '📝'} ${s}
+      </span>`).join('');
+  } else {
+    panel.style.display = 'none';
+  }
 
   showSection('detail');
 }
@@ -1698,6 +1908,34 @@ function updateAIIntel() {
   document.getElementById('aiObjectTags').innerHTML = sceneObjs.map(o =>
     `<span style="background:var(--observe-bg);color:var(--observe);border:1px solid rgba(59,130,246,0.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;">${o}</span>`
   ).join('');
+
+  // Council seat breakdown (cloud events only)
+  const cloudEvs = events.filter(e => e.cloudSource && e.seatsUsed);
+  if (cloudEvs.length > 0) {
+    document.getElementById('councilActivityCard').style.display = 'block';
+    const seatDefs = [
+      { key:'eyes',     label:'EYES',     icon:'👁', color:'#a78bfa', desc:'Gemini Vision' },
+      { key:'analyst',  label:'ANALYST',  icon:'🧠', color:'#60a5fa', desc:'Llama 4 Maverick' },
+      { key:'agent',    label:'AGENT',    icon:'⚡', color:'#34d399', desc:'Hermes 3' },
+      { key:'narrator', label:'NARRATOR', icon:'📝', color:'#f59e0b', desc:'GPT-4.1 mini' },
+    ];
+    const avgScore = cloudEvs.reduce((s,e) => s + (e.threatScore||0), 0) / cloudEvs.length;
+    document.getElementById('councilSeatGrid').innerHTML = seatDefs.map(seat => {
+      const fired = cloudEvs.filter(e => e.seatsUsed.includes(seat.key)).length;
+      const pct   = Math.round(fired / cloudEvs.length * 100);
+      return `
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:4px;">${seat.icon}</div>
+          <div style="font-size:10px;font-weight:700;color:${seat.color};letter-spacing:0.5px;">${seat.label}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px;">${seat.desc}</div>
+          <div style="font-size:22px;font-weight:800;color:#fff;">${pct}%</div>
+          <div style="font-size:10px;color:var(--text-dim);">${fired}/${cloudEvs.length} events</div>
+          <div style="margin-top:6px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${seat.color};border-radius:2px;transition:width 0.5s;"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
 }
 
 // ── Group Behavior ────────────────────────────────────────────
@@ -1799,6 +2037,23 @@ function refreshLiveSnapshots() {
 
   setText('monitorSub', `${deviceInfo.model || 'Camera'} — ${new Date().toLocaleDateString()}`);
   setText('cfgSDCard', 'Surveillance-rated');
+
+  // Cloud backend integration
+  if (FW_CLOUD_URL) {
+    const dot = document.getElementById('cloudDot');
+    const ind = document.getElementById('cloudIndicator');
+    ind.textContent = 'Cloud: connecting…';
+    if (dot) dot.style.background = 'var(--warning)';
+    await loadCloudEvents();
+    document.getElementById('cloudStatsCard').style.display = 'block';
+    setText('cfgCloudPush', FW_CLOUD_URL.replace(/https?:\/\//, '').split('/')[0]);
+    document.getElementById('httpsPushStatus').textContent = 'Configured';
+    document.getElementById('httpsPushStatus').style.color = 'var(--online)';
+    if (dot) dot.style.background = 'var(--online)';
+    setInterval(loadCloudEvents, CLOUD_POLL_MS);
+  } else {
+    document.getElementById('cloudIndicator').textContent = 'Cloud: not configured';
+  }
 
   setInterval(refreshAll, POLL_INTERVAL_MS);
   setInterval(() => { updateAIIntel(); updateGroupBehavior(); renderActivityTable(); }, POLL_INTERVAL_MS);
