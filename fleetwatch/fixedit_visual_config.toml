@@ -1,0 +1,106 @@
+# FleetWatch AI — FixedIT Data Agent config (fixedit_visual_config.toml)
+# =====================================================================
+# Canonical pipeline per the Build Playbook. Feeds AXIS Scene Metadata
+# (over MQTT) through the parser + classifier, then pushes judged events
+# to the cloud backend.
+#
+# Pipeline:  MQTT (scene metadata)
+#              -> visual_metadata.star  (enrich: zone, dwell, direction)
+#              -> alert_logic.star      (severity: HIGH / LOW / IGNORE)
+#              -> HTTP  /api/alerts      (cloud backend -> Teams)
+#
+# Upload helper files alongside this config in the FixedIT UI:
+#   visual_metadata.star , alert_logic.star
+# Set the ${...} values in the FixedIT Environment tab.
+
+[agent]
+  interval        = "${SYNC_INTERVAL_SECONDS:-5}s"
+  flush_interval  = "${FLUSH_INTERVAL_SECONDS:-5}s"
+  omit_hostname   = false
+
+[global_tags]
+  app           = "fleetwatch"
+  app_version   = "2.0.0"
+  camera_id     = "${DEVICE_PROP_SERIAL:-unknown}"
+  camera_model  = "${DEVICE_PROP_MODEL:-P3268-LVE}"
+  site          = "${SITE:-Yard A}"
+
+# ── INPUT: AXIS Scene Metadata over the camera's local MQTT broker ───
+# The camera publishes com.axis.analytics_scene_description.v0.beta#1 to
+# this topic (configure under System > MQTT > Analytics publisher).
+[[inputs.mqtt_consumer]]
+  servers       = ["${MQTT_BROKER_URL:-tcp://127.0.0.1:1883}"]
+  topics        = ["${SCENE_TOPIC:-fleetwatch/scene/+}"]
+  qos           = 0
+  client_id     = "fleetwatch-fixedit"
+  username      = "${MQTT_USERNAME:-}"
+  password      = "${MQTT_PASSWORD:-}"
+  data_format   = "json_v2"
+
+  [[inputs.mqtt_consumer.json_v2]]
+    [[inputs.mqtt_consumer.json_v2.object]]
+      path             = "frame.observations"
+      timestamp_key    = "frame.timestamp"
+      timestamp_format = "unix_ms"
+      tags             = ["trackingId"]
+
+    [[inputs.mqtt_consumer.json_v2.object.field]]
+      path = "class.type"
+      rename = "class"
+      type = "string"
+    [[inputs.mqtt_consumer.json_v2.object.field]]
+      path = "class.score"
+      rename = "confidence"
+      type = "float"
+    [[inputs.mqtt_consumer.json_v2.object.field]]
+      path = "boundingBox.left"
+      rename = "bbox_left"
+      type = "float"
+    [[inputs.mqtt_consumer.json_v2.object.field]]
+      path = "boundingBox.top"
+      rename = "bbox_top"
+      type = "float"
+    [[inputs.mqtt_consumer.json_v2.object.field]]
+      path = "boundingBox.right"
+      rename = "bbox_right"
+      type = "float"
+    [[inputs.mqtt_consumer.json_v2.object.field]]
+      path = "boundingBox.bottom"
+      rename = "bbox_bottom"
+      type = "float"
+
+# ── PROCESS 1: enrich raw detections (zone / dwell / direction) ──────
+[[processors.starlark]]
+  order  = 1
+  script = "${HELPER_FILES_DIR}/visual_metadata.star"
+
+# ── PROCESS 2: judge severity (HIGH / LOW / IGNORE) ──────────────────
+[[processors.starlark]]
+  order  = 2
+  namepass = ["visual_object"]
+  script = "${HELPER_FILES_DIR}/alert_logic.star"
+
+# ── PROCESS 3: drop IGNORE before it ever leaves the camera ──────────
+[[processors.filter]]
+  order = 3
+  namepass = ["visual_object"]
+  [[processors.filter.rule]]
+    tags = { severity = "IGNORE" }
+    action = "drop"
+
+# ── OUTPUT: push judged events to the cloud backend (-> Teams) ───────
+[[outputs.http]]
+  url           = "${FW_CLOUD_URL:-}/api/alerts?camera_id=${DEVICE_PROP_SERIAL:-unknown}&token=${FW_CLOUD_TOKEN:-}"
+  method        = "POST"
+  timeout       = "15s"
+  data_format   = "json"
+  [outputs.http.headers]
+    Content-Type  = "application/json"
+    Authorization = "Bearer ${FW_CLOUD_TOKEN:-}"
+
+# ── OUTPUT: local log for debugging (FixedIT Logs tab) ───────────────
+[[outputs.file]]
+  files       = ["stdout"]
+  data_format = "template"
+  [outputs.file.template]
+    template = '[{{.Time.Format "15:04:05"}}] {{.Tags.severity}}/{{.Tags.operator_level}} class={{.Tags.class}} zone={{.Tags.zone}} dir={{.Tags.direction}} dwell={{.Fields.dwell_sec}}s'

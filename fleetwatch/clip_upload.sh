@@ -1,14 +1,18 @@
 #!/bin/sh
-# FleetWatcher AI — HTTPS Clip Upload Helper
-# Called by config_output_https_push.conf for ESCALATE/CHALLENGE events.
-# Reads the JSON event payload from stdin, captures an SD card clip,
-# and uploads it to the FleetWatcher cloud backend.
+# FleetWatch AI — Clip / Snapshot Upload Helper
+# Captures a JPEG from the camera and POSTs it to the cloud backend's
+# /api/clips endpoint, where the Reasoning Council judges it.
 #
-# REQUIRED ENV VARS (set in FixedIT Data Agent environment):
-#   FW_CLOUD_URL    — e.g. https://your-backend.com/functions/v1/fw-webhook
-#   FW_CLOUD_TOKEN  — Bearer token
-#   VAPIX_USERNAME  — Camera username
-#   VAPIX_PASSWORD  — Camera password
+# Called by the FixedIT pipeline (or an AXIS event recipient) for events
+# that warrant a frame for the council to look at.
+#
+# REQUIRED ENV VARS (set in FixedIT Environment tab):
+#   FW_CLOUD_URL    base URL, e.g. https://fleetwatch-backend.onrender.com
+#   FW_CLOUD_TOKEN  Bearer token (must match backend FW_CLOUD_TOKEN)
+#   VAPIX_USERNAME  camera user
+#   VAPIX_PASSWORD  camera password
+# OPTIONAL:
+#   FW_ZONE   logical zone for this camera (default: general)
 #
 # Uses /bin/sh only (no bash) — portable for all Axis devices.
 
@@ -17,61 +21,50 @@ set -e
 CAMERA_HOST="127.0.0.1"
 SNAP_URL="http://${CAMERA_HOST}/axis-cgi/jpg/image.cgi?resolution=1280x720"
 CLIP_DIR="/tmp/fw_clips"
-LOG_PREFIX="[FleetWatcher clip_upload]"
+LOG_PREFIX="[FleetWatch clip_upload]"
+ZONE="${FW_ZONE:-general}"
+SERIAL="${DEVICE_PROP_SERIAL:-unknown}"
 
 mkdir -p "${CLIP_DIR}"
-
-# Read event JSON from stdin (passed by outputs.exec)
-EVENT_JSON=""
-while IFS= read -r line; do
-    EVENT_JSON="${EVENT_JSON}${line}"
-done
 
 if [ -z "${FW_CLOUD_URL:-}" ]; then
     echo "${LOG_PREFIX} FW_CLOUD_URL not set — skipping cloud push" >&2
     exit 0
 fi
 
-# Extract key fields with portable sh string ops
-TS=$(date -u +"%Y%m%dT%H%M%SZ")
-SERIAL="${DEVICE_PROP_SERIAL:-unknown}"
-LEVEL=$(echo "${EVENT_JSON}" | grep -o '"fw_level":"[^"]*"' | cut -d'"' -f4)
-SCENARIO=$(echo "${EVENT_JSON}" | grep -o '"scenario_name":"[^"]*"' | cut -d'"' -f4)
+# Read optional event JSON from stdin (passed by outputs.exec)
+EVENT_JSON=""
+while IFS= read -r line; do
+    EVENT_JSON="${EVENT_JSON}${line}"
+done
+[ -z "${EVENT_JSON}" ] && EVENT_JSON="{}"
 
+TS=$(date -u +"%Y%m%dT%H%M%SZ")
+HOUR=$(date -u +%H)
 SNAPSHOT_FILE="${CLIP_DIR}/snap_${TS}.jpg"
 
-# Capture snapshot from camera
-curl -s \
-    --anyauth \
+# Capture a frame from the camera
+curl -s --anyauth \
     --user "${VAPIX_USERNAME:-root}:${VAPIX_PASSWORD:-}" \
     --max-time 8 \
     --output "${SNAPSHOT_FILE}" \
     "${SNAP_URL}" 2>/dev/null || true
 
-# Build multipart payload and push to cloud
+ENDPOINT="${FW_CLOUD_URL}/api/clips?camera_id=${SERIAL}&token=${FW_CLOUD_TOKEN:-}&zone=${ZONE}&hour=${HOUR}"
+
 if [ -f "${SNAPSHOT_FILE}" ]; then
-    curl -s \
-        --max-time 30 \
+    curl -s --max-time 45 \
         -H "Authorization: Bearer ${FW_CLOUD_TOKEN:-}" \
-        -H "X-Camera-ID: ${SERIAL}" \
-        -H "X-FW-Level: ${LEVEL:-OBSERVE}" \
-        -H "X-FW-Scenario: ${SCENARIO:-unknown}" \
         -F "event=${EVENT_JSON};type=application/json" \
         -F "snapshot=@${SNAPSHOT_FILE};type=image/jpeg" \
-        "${FW_CLOUD_URL}" >/dev/null 2>&1 || true
-
+        "${ENDPOINT}" >/dev/null 2>&1 || true
     rm -f "${SNAPSHOT_FILE}"
-    echo "${LOG_PREFIX} Clip+snapshot pushed: level=${LEVEL} scenario=${SCENARIO} ts=${TS}" >&2
+    echo "${LOG_PREFIX} Frame sent to council: zone=${ZONE} ts=${TS}" >&2
 else
-    # Fallback: push JSON event only (no snapshot)
-    curl -s \
-        --max-time 15 \
+    # No snapshot — still send the event JSON for rule-only judging
+    curl -s --max-time 20 \
         -H "Authorization: Bearer ${FW_CLOUD_TOKEN:-}" \
-        -H "Content-Type: application/json" \
-        -H "X-Camera-ID: ${SERIAL}" \
-        -H "X-FW-Level: ${LEVEL:-OBSERVE}" \
-        -d "${EVENT_JSON}" \
-        "${FW_CLOUD_URL}" >/dev/null 2>&1 || true
-
-    echo "${LOG_PREFIX} Event-only push (no snapshot): level=${LEVEL} ts=${TS}" >&2
+        -F "event=${EVENT_JSON};type=application/json" \
+        "${ENDPOINT}" >/dev/null 2>&1 || true
+    echo "${LOG_PREFIX} Event-only push (no snapshot): ts=${TS}" >&2
 fi

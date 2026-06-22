@@ -5,14 +5,48 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    plan: free
     envVars:
+      # Core
       - key: FW_CLOUD_TOKEN
         generateValue: true
+      - key: SITE
+        value: Home Test Lab
       - key: FW_MAX_EVENTS
         value: "5000"
       - key: FW_DB_PATH
         value: /tmp/fleetwatch.db
-      - key: FW_SNAP_DIR
-        value: /tmp/fw_snapshots
-    healthCheckPath: /health
-    plan: free
+      # Alerts (set in dashboard)
+      - key: TEAMS_WEBHOOK_URL
+        sync: false
+      # Detection provider
+      - key: DETECTION_PROVIDER
+        value: roboflow
+      - key: ROBOFLOW_API_KEY
+        sync: false
+      - key: ROBOFLOW_MODEL_ID
+        value: fleetwatch-detect/1
+      - key: ROBOVISION_API_KEY
+        sync: false
+      - key: ROBOVISION_ENDPOINT
+        sync: false
+      # Reasoning council
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: COUNCIL_EYES_MODEL
+        value: google/gemini-2.0-flash-001
+      - key: COUNCIL_ANALYST_MODEL
+        value: deepseek/deepseek-chat
+      - key: COUNCIL_AGENT_MODEL
+        value: nousresearch/hermes-3-llama-3.1-70b
+      - key: COUNCIL_NARRATOR_MODEL
+        value: openai/gpt-4.1-mini
+      - key: COUNCIL_EYES_ENABLED
+        value: "1"
+      - key: COUNCIL_ANALYST_ENABLED
+        value: "1"
+      - key: COUNCIL_AGENT_ENABLED
+        value: "1"
+      - key: COUNCIL_NARRATOR_ENABLED
+        value: "1"
