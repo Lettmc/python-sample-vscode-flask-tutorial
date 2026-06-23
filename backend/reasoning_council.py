@@ -17,7 +17,7 @@ turned off with one env flag (data-residency / cost control).
       Looks at the actual frame and says what is visually present. This is the
       capability ElectricEye leans on. Vision-first.
 
-  ANALYST     (DeepSeek, deep reasoning)
+  ANALYST     (Llama, deep reasoning)
       Reasons over the structured metadata + the EYES description to score
       threat and intent. Text reasoning, cheap, strong.
 
@@ -36,7 +36,7 @@ Env vars
     OPENROUTER_API_KEY        single key for all seats via OpenRouter
 
     COUNCIL_EYES_MODEL        default google/gemini-2.0-flash-001
-    COUNCIL_ANALYST_MODEL     default deepseek/deepseek-chat
+    COUNCIL_ANALYST_MODEL     default meta-llama/llama-4-maverick
     COUNCIL_AGENT_MODEL       default nousresearch/hermes-3-llama-3.1-70b
     COUNCIL_NARRATOR_MODEL    default openai/gpt-4.1-mini
 
@@ -258,6 +258,104 @@ def convene(image_bytes, detections, event_context, rule_severity="LOW",
 
     verdict["total_latency_ms"] = int((time.time() - t0) * 1000)
     return verdict
+
+
+# ── Multi-Candidate Descriptions ─────────────────────────────────────────────
+_CANDIDATE_PERSPECTIVES = [
+    {
+        "model":   "google/gemini-2.0-flash-001",
+        "persona": "You are a security analyst reviewing camera footage. Write ONE factual sentence "
+                   "describing the threat or suspicious activity visible in this image. "
+                   "Be specific about objects, actions, and positions.",
+    },
+    {
+        "model":   "meta-llama/llama-4-maverick",
+        "persona": "You are a court-ready forensic analyst. Write ONE precise legal-quality sentence "
+                   "describing exactly what is visible in this security camera image. "
+                   "Focus on observable facts only.",
+    },
+    {
+        "model":   "openai/gpt-4.1-mini",
+        "persona": "You are a 911 dispatcher writing a CAD entry. In ONE urgent, clear sentence "
+                   "describe the threat for emergency responders. Include object type, "
+                   "person description, and location in frame.",
+    },
+]
+
+
+def _candidate_call(model, persona, image_bytes, labels, event_context, site_name):
+    prompt = (
+        f"{persona} Site: {site_name}. Detected: {labels}. "
+        f"Context: {json.dumps(event_context, default=str)}"
+    )
+    content = [{"type": "text", "text": prompt}]
+    if image_bytes:
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        content.append({"type": "image_url",
+                         "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
+    return _openrouter(model, [{"role": "user", "content": content}], max_tokens=100)
+
+
+def generate_candidates(image_bytes, detections, event_context,
+                        site_name="site", n=3) -> tuple:
+    """
+    Generate N AI description candidates from different model perspectives.
+    The Narrator seat then selects the best fit.
+
+    Returns: (best_text: str | None, candidates: list[dict])
+    """
+    labels = ", ".join(sorted({d["label"] for d in detections})) or "unspecified activity"
+    perspectives = _CANDIDATE_PERSPECTIVES[:n]
+    candidates = []
+    for p in perspectives:
+        try:
+            text = _candidate_call(
+                p["model"], p["persona"], image_bytes, labels, event_context, site_name
+            )
+            candidates.append({
+                "model":       p["model"].split("/")[-1],
+                "full_model":  p["model"],
+                "persona":     p["persona"][:60] + "…",
+                "text":        text,
+                "error":       None,
+            })
+        except Exception as e:
+            candidates.append({
+                "model":      p["model"].split("/")[-1],
+                "full_model": p["model"],
+                "persona":    p["persona"][:60] + "…",
+                "text":       None,
+                "error":      str(e),
+            })
+
+    valid = [c for c in candidates if c["text"]]
+    if not valid:
+        return None, candidates
+    if len(valid) == 1:
+        return valid[0]["text"], candidates
+
+    # Narrator picks the best
+    selection_prompt = (
+        f"You are choosing the BEST security alert description for an operator at {site_name}.\n"
+        f"Context: {json.dumps(event_context, default=str)}\n\n"
+        f"Candidates:\n"
+        + "\n".join(f"{i+1}. {c['text']}" for i, c in enumerate(valid))
+        + "\n\nReply with ONLY the number (1, 2, or 3) of the most accurate, "
+          "clear, and actionable description."
+    )
+    try:
+        raw   = _openrouter(SEATS["narrator"]["model"],
+                            [{"role": "user", "content": selection_prompt}],
+                            max_tokens=5).strip()
+        idx   = int(raw.split()[0]) - 1
+        best  = valid[max(0, min(idx, len(valid) - 1))]["text"]
+        candidates[idx]["selected"] = True
+    except Exception:
+        best  = valid[0]["text"]
+        if valid:
+            candidates[0]["selected"] = True
+
+    return best, candidates
 
 
 if __name__ == "__main__":

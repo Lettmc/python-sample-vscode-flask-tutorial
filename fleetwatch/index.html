@@ -593,6 +593,110 @@
     .fw-badge.esc  { background: var(--escalate-bg); color: var(--escalate); }
     .fw-badge.chal { background: var(--challenge-bg); color: var(--challenge); }
     .fw-badge.obs  { background: var(--observe-bg);   color: var(--observe); }
+
+    /* ── Video Replay ── */
+    .replay-layout { display:grid; grid-template-columns: 1fr 320px; gap:14px; align-items:start; }
+    @media (max-width: 1100px){ .replay-layout{ grid-template-columns:1fr; } }
+    .replay-stage { display:flex; flex-direction:column; gap:12px; }
+    .replay-canvas-wrap {
+      position:relative; width:100%; aspect-ratio:16/9; background:#05070d;
+      border:1px solid var(--border); border-radius:12px; overflow:hidden;
+    }
+    .replay-canvas-wrap img { width:100%; height:100%; object-fit:contain; display:block; }
+    .replay-canvas-wrap canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .replay-empty {
+      position:absolute; inset:0; display:flex; flex-direction:column; gap:10px;
+      align-items:center; justify-content:center; color:var(--text-dim); text-align:center;
+    }
+    .replay-empty .icon { font-size:40px; opacity:0.4; }
+    .replay-empty .msg { font-size:12px; max-width:260px; }
+    .replay-hud {
+      position:absolute; top:10px; left:10px; right:10px; display:flex; align-items:center; gap:8px;
+      background:rgba(0,0,0,0.55); color:#fff; font-size:11px; font-weight:700; letter-spacing:0.5px;
+      padding:5px 10px; border-radius:6px; backdrop-filter:blur(4px);
+    }
+    .rec-dot { width:8px;height:8px;border-radius:50%;background:#ef4444; animation:pulse 1.4s infinite; }
+    .replay-controls {
+      display:flex; align-items:center; gap:12px; background:var(--card);
+      border:1px solid var(--border); border-radius:10px; padding:8px 14px;
+    }
+    .replay-narration { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+    .replay-list { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+    .replay-clip {
+      display:flex; gap:10px; padding:8px; border-radius:8px; cursor:pointer; border:1px solid transparent;
+      transition:background .15s, border-color .15s;
+    }
+    .replay-clip:hover { background:rgba(255,255,255,0.04); }
+    .replay-clip.active { background:rgba(26,111,255,0.12); border-color:var(--accent); }
+    .replay-clip .thumb { width:64px; height:40px; border-radius:5px; object-fit:cover; background:#05070d; flex-shrink:0; }
+    .replay-clip .ci-title { font-size:11px; color:var(--text); font-weight:600; line-height:1.3;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .replay-clip .ci-meta { font-size:10px; color:var(--text-dim); margin-top:2px; }
+    .cand-thread {
+      border:1px solid var(--border); border-radius:8px; padding:9px 11px; font-size:12px;
+      line-height:1.5; cursor:pointer; transition:border-color .15s, background .15s;
+    }
+    .cand-thread:hover { background:rgba(255,255,255,0.03); }
+    .cand-thread.selected { border-color:var(--accent); background:rgba(26,111,255,0.08); }
+    .cand-thread .cand-model {
+      font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;
+      color:var(--accent); margin-bottom:3px; display:flex; align-items:center; gap:6px;
+    }
+    .cand-thread .cand-pick { margin-left:auto; color:var(--online); font-size:9px; }
+    .dispatch-row { display:flex; flex-wrap:wrap; gap:8px; }
+    .dispatch-btn {
+      display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; font-size:11px;
+      font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--bg); color:var(--text);
+      transition:border-color .15s, background .15s;
+    }
+    .dispatch-btn:hover { border-color:var(--accent); background:rgba(26,111,255,0.08); }
+    .dispatch-btn.armed { border-color:var(--online); }
+    .dispatch-btn.danger:hover { border-color:var(--escalate); background:rgba(239,68,68,0.1); }
+    .dispatch-btn .ch-off { color:var(--text-dim); font-size:9px; }
+
+    /* ── Bounding boxes (shared by replay + detail) ── */
+    .bbox-layer { position:absolute; inset:0; pointer-events:none; }
+    .bbox {
+      position:absolute; border:2px solid var(--escalate); border-radius:3px;
+      box-shadow:0 0 0 1px rgba(0,0,0,0.4);
+    }
+    .bbox.threat { border-color:#ef4444; }
+    .bbox.person { border-color:#f59e0b; }
+    .bbox.object { border-color:#3b82f6; }
+    .bbox-tag {
+      position:absolute; top:-19px; left:-2px; white-space:nowrap;
+      background:var(--escalate); color:#fff; font-size:9px; font-weight:700;
+      padding:1px 6px; border-radius:3px;
+    }
+    .bbox.person .bbox-tag { background:#f59e0b; }
+    .bbox.object .bbox-tag { background:#3b82f6; }
+
+    /* ── Camera Fleet ── */
+    .fleet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+    .fleet-card {
+      background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;
+      cursor:pointer; transition:border-color .15s, transform .15s;
+    }
+    .fleet-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+    .fleet-thumb { width:100%; aspect-ratio:16/9; background:#05070d; object-fit:cover; display:block; }
+    .fleet-body { padding:11px 13px; }
+    .fleet-name { font-size:13px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:7px; }
+    .fleet-dot { width:8px;height:8px;border-radius:50%; flex-shrink:0; }
+    .fleet-dot.online { background:var(--online); box-shadow:0 0 6px var(--online); }
+    .fleet-dot.offline{ background:var(--offline); }
+    .fleet-dot.warning{ background:var(--warning); }
+    .fleet-meta { font-size:10px; color:var(--text-dim); margin-top:5px; line-height:1.6; }
+    .fleet-link { font-size:10px; color:var(--accent); margin-top:6px; display:inline-block; }
+
+    /* ── Channel status chips ── */
+    .ch-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+    .ch-chip {
+      display:flex; align-items:center; gap:6px; font-size:11px; padding:4px 10px;
+      border-radius:20px; border:1px solid var(--border); color:var(--text-mid);
+    }
+    .ch-chip .ch-led { width:7px;height:7px;border-radius:50%; background:var(--text-dim); }
+    .ch-chip.on { color:var(--text); border-color:rgba(34,197,94,0.4); }
+    .ch-chip.on .ch-led { background:var(--online); box-shadow:0 0 5px var(--online); }
   </style>
 </head>
 <body>
@@ -620,6 +724,15 @@
       </div>
       <div class="nav-item" data-section="liveview">
         <span class="icon">▶</span> Live View
+      </div>
+      <div class="nav-item" data-section="replay">
+        <span class="icon">⎌</span> Video Replay
+      </div>
+
+      <div class="nav-section">Fleet</div>
+      <div class="nav-item" data-section="fleet">
+        <span class="icon">⛁</span> Camera Fleet
+        <span class="nav-badge" id="badge-fleet" style="background:var(--online)">0</span>
       </div>
 
       <div class="nav-section">Intelligence</div>
@@ -838,8 +951,9 @@
               <button class="ev-btn" onclick="changeEvidence(1)">›</button>
             </div>
           </div>
-          <div class="video-player">
-            <img id="detailSnapshot" src="" alt="Camera snapshot" />
+          <div class="video-player" id="detailVideoPlayer" style="position:relative;">
+            <img id="detailSnapshot" src="" alt="Camera snapshot" onload="drawDetailBoxes()" />
+            <canvas id="detailCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></canvas>
             <div class="video-overlay">
               <div style="padding:8px 12px; display:flex; gap:6px; align-items:center;">
                 <span style="background:rgba(0,0,0,0.6); color:#fff; font-size:10px; border-radius:4px; padding:3px 8px;">Aidant Actions</span>
@@ -980,6 +1094,84 @@
     <!-- ════════ SECTION: LIVE VIEW ════════ -->
     <div class="section" id="section-liveview">
       <div class="live-grid" id="liveGrid"></div>
+    </div>
+
+    <!-- ════════ SECTION: VIDEO REPLAY ════════ -->
+    <div class="section" id="section-replay">
+      <div class="filter-bar">
+        <input class="search-input" type="text" id="replaySearch" placeholder="Search replays by description, zone, camera…" oninput="renderReplayGallery()" style="max-width:340px;">
+        <div class="filter-btn" id="replayFilterBtn" onclick="cycleReplayFilter()"><span id="replayFilterLabel">High Alerts Only</span> ▾</div>
+        <span style="margin-left:auto; font-size:11px; color:var(--text-dim);">Clips are reviewed by the Reasoning Council with bounding boxes drawn on threats.</span>
+      </div>
+      <div class="replay-layout">
+        <!-- Player -->
+        <div class="replay-stage">
+          <div class="replay-canvas-wrap" id="replayCanvasWrap">
+            <img id="replayImg" src="" alt="Replay frame" crossorigin="anonymous" onload="drawReplayBoxes()">
+            <canvas id="replayCanvas"></canvas>
+            <div class="replay-empty" id="replayEmpty">
+              <div class="icon">⎌</div>
+              <div class="msg">Select a high-alert clip to replay with AI bounding boxes.</div>
+            </div>
+            <div class="replay-hud" id="replayHud" style="display:none;">
+              <span class="rec-dot"></span> <span id="replayHudLabel">REVIEW</span>
+              <span id="replayHudTime" style="margin-left:auto;"></span>
+            </div>
+          </div>
+          <div class="replay-controls" id="replayControls" style="display:none;">
+            <button class="v-btn" onclick="toggleReplayPlay()" id="replayPlayBtn">▶</button>
+            <input type="range" min="0" max="100" value="0" id="replayScrub" style="flex:1; accent-color:var(--accent); height:3px;" oninput="scrubReplay(this.value)">
+            <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:5px;cursor:pointer;">
+              <input type="checkbox" id="replayBoxToggle" checked onchange="drawReplayBoxes()"> Boxes
+            </label>
+            <span class="v-timestamp" id="replayClock">00:00</span>
+          </div>
+          <!-- AI narration + multi-candidate threads -->
+          <div class="replay-narration" id="replayNarration" style="display:none;">
+            <div class="stat-label" style="margin-bottom:8px;">AI Threat Narration <span id="replaySelModel" style="float:right;font-weight:400;color:var(--text-dim);"></span></div>
+            <div id="replayNarrText" style="font-size:13px;line-height:1.7;color:var(--text);padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"></div>
+            <div class="stat-label" style="margin:14px 0 6px;">Candidate Description Threads</div>
+            <div id="replayCandidates" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <div class="stat-label" style="margin:14px 0 6px;">Dispatch Alert</div>
+            <div class="dispatch-row" id="replayDispatch"></div>
+          </div>
+        </div>
+        <!-- Clip list -->
+        <div class="replay-list">
+          <div class="list-header">High-Alert Clips <span class="list-count" id="replayCount">0</span></div>
+          <div id="replayList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: CAMERA FLEET ════════ -->
+    <div class="section" id="section-fleet">
+      <div class="status-row">
+        <div class="stat-card">
+          <div class="stat-label">Cameras Synced</div>
+          <div class="stat-value" id="fleetTotal" style="color:#fff">—</div>
+          <div class="stat-sub" id="fleetSub">FleetWatcher AI mesh</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Online &amp; Communicating</div>
+          <div class="stat-value" id="fleetOnline" style="color:var(--online)">—</div>
+          <div class="stat-sub">Sharing events in real time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Camera</div>
+          <div class="status-active"><span class="pulse"></span> ACTIVE</div>
+          <div class="stat-sub" id="fleetThisCam">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Mesh Link</div>
+          <div class="stat-value" id="fleetMesh" style="font-size:20px;color:var(--accent)">Cloud Relay</div>
+          <div class="stat-sub" id="fleetMeshSub">via FleetWatch backend</div>
+        </div>
+      </div>
+      <div class="list-header" style="margin-top:14px;">Synced Cameras — click any camera to inspect</div>
+      <div class="fleet-grid" id="fleetGrid">
+        <div class="empty-state"><div class="icon">⛁</div><div class="msg">Connect the cloud backend to see synced cameras.</div></div>
+      </div>
     </div>
 
     <!-- ════════ SECTION: AI INTEL ════════ -->
@@ -1148,6 +1340,13 @@
           <div class="info-row"><span class="info-key">SD Card</span><span class="info-val" id="cfgSDCard">—</span></div>
         </div>
         <div class="info-block">
+          <div class="info-block-title">Alert Channels</div>
+          <p style="font-size:11px;color:var(--text-dim);margin:2px 0 4px;">Where HIGH alerts are dispatched. Configure in backend env vars.</p>
+          <div class="ch-grid" id="channelStatusBox">
+            <span class="ch-chip"><span class="ch-led"></span>Connect cloud…</span>
+          </div>
+        </div>
+        <div class="info-block">
           <div class="info-block-title">Actions</div>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
             <button class="btn-view" onclick="refreshAll()" style="width:100%;">↺ Refresh All Data</button>
@@ -1215,6 +1414,12 @@ let deviceInfo    = {};
 let aoaScenarios  = [];
 let currentDetail = null;
 let cloudStats    = {};
+let cloudCameras  = [];   // per-camera breakdown from /api/stats
+let fleetCameras  = [];   // full registry from /api/cameras
+let currentReplay = null; // currently selected replay clip
+let replayFilter  = 0;    // 0=high only, 1=all
+let channelStatus = {};   // notification channel availability
+const REPLAY_FILTERS = ['High Alerts Only', 'All Reviewed Clips'];
 let filterPriority = 0;  // 0=all, 1=escalate, 2=challenge, 3=observe
 let filterType     = 0;  // 0=all, 1=security, 2=safety, 3=ops
 const PRIORITY_LABELS = ['All Priorities','ESCALATE','CHALLENGE','OBSERVE'];
@@ -1237,6 +1442,8 @@ function showSection(id) {
     detail:          ['Event Details',     ''],
     activity:        ['All Activity',      'Historical record of all events for audit logs.'],
     liveview:        ['Live View',         'Real-time camera streams.'],
+    replay:          ['Video Replay',      'Reviewed high-alert clips with AI bounding boxes and threat narration.'],
+    fleet:           ['Camera Fleet',      'All cameras synced to FleetWatcher AI — status, health, and mesh communication.'],
     'ai-intel':      ['AI Intel',          'Scene intelligence and abnormality analysis.'],
     'group-behavior':['Group Behavior',    'Multi-person interaction patterns.'],
     'camera-health': ['Camera Health',     'Sensor status and connectivity.'],
@@ -1247,6 +1454,9 @@ function showSection(id) {
     document.getElementById('pageTitle').textContent = titles[id][0];
     document.getElementById('pageDesc').textContent  = titles[id][1];
   }
+  // Lazy-load section data on demand
+  if (id === 'fleet')  loadFleet();
+  if (id === 'replay') renderReplayGallery();
 }
 
 // ── VAPIX Fetch helpers ──────────────────────────────────────
@@ -1330,42 +1540,61 @@ async function loadCloudEvents() {
 }
 
 function cloudEventToLocal(ce) {
-  const verdict = ce.verdict || {};
-  const ts = ce.created_at ? new Date(ce.created_at).getTime() : Date.now();
-  const opLevel = (ce.operator_level || verdict.operator_level || 'OBSERVE').toUpperCase();
+  // Backend v3 returns flat columns + raw_json (verdict/ctx/candidates).
+  let raw = {};
+  try { raw = typeof ce.raw_json === 'string' ? JSON.parse(ce.raw_json) : (ce.raw_json || {}); } catch(e) {}
+  const verdict    = raw.verdict || {};
+  const candidates = raw.candidates || [];
+  const ts = ce.received_at ? new Date(ce.received_at).getTime() : Date.now();
+  const opLevel = (ce.operator_level || 'OBSERVE').toUpperCase();
   const levelMap = { ESCALATE: 'ESCALATE', CHALLENGE: 'CHALLENGE', OBSERVE: 'OBSERVE' };
   const level = levelMap[opLevel] || 'OBSERVE';
   const prioMap = { ESCALATE: 'Critical Priority', CHALLENGE: 'Moderate Priority', OBSERVE: 'Low Priority' };
+  const boxes = Array.isArray(ce.bounding_boxes) ? ce.bounding_boxes
+              : (typeof ce.bounding_boxes === 'string' ? safeParse(ce.bounding_boxes, []) : []);
+  const seats = Array.isArray(ce.seats_used) ? ce.seats_used
+              : (typeof ce.seats_used === 'string' ? safeParse(ce.seats_used, []) : []);
   return {
     id: 'cloud-' + ce.id,
     cloudId: ce.id,
     level,
     priority: prioMap[level],
-    title: ce.narrative || verdict.narrative || `${ce.class || 'Object'} detected in ${ce.zone || 'zone'}`,
-    description: verdict.visual_description || ce.narrative || '',
+    title: ce.narrative || `${ce.detected_class || 'Object'} detected in ${ce.zone || 'zone'}`,
+    description: ce.visual_description || ce.narrative || '',
     time: new Date(ts).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}),
     date: new Date(ts).toLocaleDateString('en-US'),
     ts,
     location: ce.site || 'FleetWatch Site',
-    zone: ce.zone || verdict.site || '—',
+    zone: ce.zone || '—',
     sensors: ce.camera_id || '—',
+    cameraId: ce.camera_id || '',
     types: ['Security'],
     status: ce.resolved ? 'Resolved' : 'Open',
-    clips: ce.snapshot_path ? 1 : 0,
-    snapshotId: ce.id,
+    clips: ce.snapshot_id ? 1 : 0,
+    snapshotId: ce.snapshot_id || null,
+    detectedClass: ce.detected_class || '',
+    boundingBoxes: boxes,
+    candidates,
+    severity: ce.severity || verdict.severity || 'LOW',
     verdict,
-    threatScore: verdict.threat_score || ce.threat_score,
-    recommendedAction: verdict.recommended_action || '—',
-    seatsUsed: verdict.seats_used || [],
-    narrative: verdict.narrative || '',
+    threatScore: ce.threat_score !== undefined ? ce.threat_score : verdict.threat_score,
+    recommendedAction: ce.recommended_action || verdict.recommended_action || '—',
+    seatsUsed: seats,
+    narrative: ce.narrative || verdict.narrative || '',
+    feedback: ce.feedback || '',
     cloudSource: true
   };
 }
 
+function safeParse(s, fallback) { try { return JSON.parse(s); } catch(e) { return fallback; } }
+
 function updateCloudStats(stats) {
-  if (stats.total !== undefined) setText('cloudTotal', stats.total.toString());
+  const total = stats.open_total !== undefined ? stats.open_total : stats.total;
+  if (total !== undefined) setText('cloudTotal', total.toString());
   if (stats.high  !== undefined) setText('cloudHigh',  stats.high.toString());
   if (stats.low   !== undefined) setText('cloudLow',   stats.low.toString());
+  if (stats.channels) renderChannelStatus(stats.channels);
+  if (stats.by_camera) { cloudCameras = stats.by_camera; }
 }
 
 async function resolveCloudEvent(cloudId) {
@@ -1582,7 +1811,19 @@ function seedDemoEvents() {
       time:'10:40 AM CDT', date:'4/8/2026', ts: new Date('2026-04-08T10:40:00').getTime(),
       location:'Axis Experience Center', zone:'Zone 1',
       sensors:'Q3546 Le Dome, Q1972 LE Thermal',
-      types:['Security'], status:'Open', clips:2
+      types:['Security'], status:'Open', clips:2,
+      localReplay:true, detectedClass:'weapon', threatScore:92, recommendedAction:'escalate',
+      narrative:'ESCALATE: An armed individual carrying a rifle is moving through the lobby toward an interior room; treat as an active threat and dispatch immediately.',
+      seatsUsed:['eyes','analyst','agent','narrator'],
+      boundingBoxes:[
+        {label:'person', confidence:0.94, x:320, y:200, w:140, h:300},
+        {label:'rifle',  confidence:0.88, x:400, y:230, w:180, h:60},
+      ],
+      candidates:[
+        {model:'gemini-2.0-flash', selected:true, text:'A person in dark clothing is carrying a long rifle at waist height while walking briskly through the lobby toward an interior doorway.'},
+        {model:'llama-4-maverick', text:'Subject observed holding an elongated firearm consistent with a rifle, barrel oriented forward, advancing across the lobby floor.'},
+        {model:'gpt-4.1-mini',     text:'Armed male, rifle in both hands, moving from lobby entrance toward rear room — possible active shooter, advise immediate response.'},
+      ]
     },
     {
       id:'evt-002', level:'CHALLENGE', priority:'Moderate Priority',
@@ -1637,6 +1878,28 @@ function seedDemoEvents() {
       location:'Axis Experience Center', zone:'Zone 1',
       sensors:'Q3546 Le Dome, Q1972 LE Thermal',
       types:['Safety','Security'], status:'Resolved', clips:2
+    },
+    {
+      id:'evt-008', level:'ESCALATE', priority:'Critical Priority',
+      title:'Unauthorized Hardware Installed in Server Room',
+      description:'An individual without scheduled access entered the server room, opened a rack, and connected an external hard drive to a running server before leaving. No work order matched this activity.',
+      time:'2:14 AM CDT', date:'6/22/2026', ts: new Date('2026-06-22T02:14:00').getTime(),
+      location:'Home Test Lab', zone:'Server Room',
+      sensors:'P3268-LVE',
+      types:['Security','Operations'], status:'Open', clips:1,
+      localReplay:true, detectedClass:'unauthorized-device', threatScore:84, recommendedAction:'escalate',
+      narrative:'ESCALATE: After-hours entry to the server room with an unauthorized external drive connected to a live server — possible data exfiltration or implant; lock the rack and verify chain of custody.',
+      seatsUsed:['eyes','analyst','agent','narrator'],
+      boundingBoxes:[
+        {label:'person',     confidence:0.91, x:250, y:190, w:130, h:280},
+        {label:'hard-drive', confidence:0.79, x:430, y:250, w:90,  h:60},
+        {label:'open-rack',  confidence:0.83, x:470, y:180, w:150, h:320},
+      ],
+      candidates:[
+        {model:'gemini-2.0-flash', selected:true, text:'A person is kneeling at an open server rack and plugging a small external hard drive into a rack-mounted server during the early morning hours.'},
+        {model:'llama-4-maverick', text:'Subject connected a portable storage device to an active server within an opened equipment rack; action is inconsistent with logged maintenance.'},
+        {model:'gpt-4.1-mini',     text:'Unauthorized after-hours access: individual installed an external drive on a live server — flag as potential data theft or hardware implant.'},
+      ]
     }
   ];
   saveEvents();
@@ -1802,7 +2065,7 @@ function openDetail(id) {
 
   // Snapshot: cloud events show stored snapshot, else live VAPIX
   if (ev.cloudSource && ev.snapshotId && FW_CLOUD_URL) {
-    document.getElementById('detailSnapshot').src = `${FW_CLOUD_URL}/api/snapshots/${ev.snapshotId}`;
+    document.getElementById('detailSnapshot').src = `${FW_CLOUD_URL}/api/snapshots/${ev.snapshotId}?token=${FW_CLOUD_TOKEN}`;
   } else {
     document.getElementById('detailSnapshot').src = getSnapshotUrl(1);
   }
@@ -1831,6 +2094,8 @@ function openDetail(id) {
   }
 
   showSection('detail');
+  // Draw bounding boxes (onload also fires, this covers cached images).
+  setTimeout(drawDetailBoxes, 60);
 }
 
 function switchDetailTab(tab) {
@@ -1841,6 +2106,305 @@ function switchDetailTab(tab) {
 }
 
 function changeEvidence(dir) { toast(`Switching to evidence clip ${dir > 0 ? 'next' : 'previous'}`); }
+
+/* ══════════════════════════════════════════════════════════════
+   CAMERA FLEET — synced cameras + mesh status
+══════════════════════════════════════════════════════════════ */
+async function loadFleet() {
+  // This camera always shows, even in offline-only (no cloud) mode.
+  const model = deviceInfo.model && deviceInfo.model !== '—' ? deviceInfo.model : 'P3268-LVE';
+  const serial = deviceInfo.serial && deviceInfo.serial !== '—' ? deviceInfo.serial : '';
+  const thisCamId = serial ? `${model.replace(/\s+/g,'')}-${serial}` : model;
+  setText('fleetThisCam', thisCamId);
+
+  let reg = [];
+  if (FW_CLOUD_URL) reg = await cloudGet(`/api/cameras?token=${FW_CLOUD_TOKEN}`) || [];
+  fleetCameras = Array.isArray(reg) ? reg : [];
+
+  // Ensure this camera is represented
+  if (!fleetCameras.some(c => c.camera_id === thisCamId)) {
+    fleetCameras.unshift({
+      camera_id: thisCamId, site: 'Home Test Lab',
+      zone: 'local', model: model,
+      firmware: deviceInfo.firmware || '—', status: 'online',
+      last_seen: new Date().toISOString(), event_count: events.length, _self: true
+    });
+  }
+
+  const online = fleetCameras.filter(c => c.status === 'online').length;
+  setText('fleetTotal', fleetCameras.length.toString());
+  setText('fleetOnline', online.toString());
+  setText('fleetSub', FW_CLOUD_URL ? 'Synced via cloud relay' : 'Local only — cloud not configured');
+  setText('fleetMeshSub', FW_CLOUD_URL ? FW_CLOUD_URL.replace(/https?:\/\//,'').split('/')[0] : 'offline');
+  const badge = document.getElementById('badge-fleet');
+  if (badge) badge.textContent = fleetCameras.length.toString();
+
+  renderFleet();
+}
+
+function renderFleet() {
+  const grid = document.getElementById('fleetGrid');
+  if (!grid) return;
+  if (fleetCameras.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">⛁</div><div class="msg">No cameras synced yet.</div></div>`;
+    return;
+  }
+  grid.innerHTML = fleetCameras.map(c => {
+    const status = c.status || 'unknown';
+    const last   = c.last_seen ? timeAgo(new Date(c.last_seen)) : 'never';
+    const thumb  = c._self ? getSnapshotUrl(1) : '';
+    return `<div class="fleet-card" onclick="inspectCamera('${c.camera_id}')">
+      ${thumb ? `<img class="fleet-thumb" src="${thumb}" alt="${c.camera_id}" onerror="this.style.display='none'">`
+              : `<div class="fleet-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:24px;">📷</div>`}
+      <div class="fleet-body">
+        <div class="fleet-name">
+          <span class="fleet-dot ${status}"></span>${c.camera_id}${c._self ? ' <span style="font-size:9px;color:var(--accent)">(this camera)</span>' : ''}
+        </div>
+        <div class="fleet-meta">
+          Model: ${c.model || '—'} · Zone: ${c.zone || '—'}<br>
+          Site: ${c.site || '—'} · Events: ${c.event_count ?? 0}<br>
+          ${status === 'online' ? '🟢 Communicating' : '⚪ ' + status} · last seen ${last}
+        </div>
+        <span class="fleet-link">View camera events →</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function inspectCamera(camId) {
+  // Filter activity to this camera and jump there
+  document.getElementById('actSearchInput').value = camId;
+  showSection('activity');
+  renderActivityTable();
+  toast(`Showing events for ${camId}`);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   VIDEO REPLAY — clip gallery + bounding-box overlay + AI threads
+══════════════════════════════════════════════════════════════ */
+function replayFrameUrl(ev) {
+  if (ev.cloudSource && ev.snapshotId && FW_CLOUD_URL)
+    return `${FW_CLOUD_URL}/api/snapshots/${ev.snapshotId}?token=${FW_CLOUD_TOKEN}`;
+  return getSnapshotUrl(1);  // local replay → live camera frame
+}
+
+function replayPool() {
+  let pool = events.filter(e => (e.cloudSource && e.snapshotId) || e.localReplay);
+  if (replayFilter === 0) pool = pool.filter(e => e.level === 'ESCALATE' || e.severity === 'HIGH');
+  const q = (document.getElementById('replaySearch')?.value || '').toLowerCase();
+  if (q) pool = pool.filter(e =>
+    (e.title||'').toLowerCase().includes(q) ||
+    (e.zone||'').toLowerCase().includes(q) ||
+    (e.sensors||'').toLowerCase().includes(q));
+  return pool.sort((a,b) => b.ts - a.ts);
+}
+
+function cycleReplayFilter() {
+  replayFilter = (replayFilter + 1) % REPLAY_FILTERS.length;
+  setText('replayFilterLabel', REPLAY_FILTERS[replayFilter]);
+  renderReplayGallery();
+}
+
+function renderReplayGallery() {
+  const list = document.getElementById('replayList');
+  if (!list) return;
+  const pool = replayPool();
+  setText('replayCount', pool.length.toString());
+  if (pool.length === 0) {
+    list.innerHTML = `<div class="empty-state" style="padding:30px 10px;"><div class="icon">⎌</div>
+      <div class="msg">No reviewed clips yet. HIGH events with a snapshot appear here.</div></div>`;
+    return;
+  }
+  list.innerHTML = pool.map(e => {
+    const thumb = replayFrameUrl(e);
+    const active = currentReplay && currentReplay.id === e.id ? 'active' : '';
+    return `<div class="replay-clip ${active}" onclick="selectReplay('${e.id}')">
+      <img class="thumb" src="${thumb}" onerror="this.style.visibility='hidden'">
+      <div style="min-width:0;">
+        <div class="ci-title">${e.title}</div>
+        <div class="ci-meta">${priorityArrow(e.level)} ${e.zone} · ${e.time} · score ${e.threatScore ?? '—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // Auto-select first if nothing selected
+  if (!currentReplay && pool.length) selectReplay(pool[0].id);
+}
+
+function selectReplay(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  currentReplay = ev;
+  document.getElementById('replayEmpty').style.display = 'none';
+  document.getElementById('replayHud').style.display = 'flex';
+  document.getElementById('replayControls').style.display = 'flex';
+  document.getElementById('replayNarration').style.display = 'block';
+  setText('replayHudLabel', `${ev.level} · ${ev.detectedClass || 'event'}`);
+  setText('replayHudTime', `${ev.date} ${ev.time}`);
+  document.getElementById('replayImg').src = replayFrameUrl(ev);
+
+  // Narration
+  setText('replayNarrText', ev.narrative || ev.description || 'No AI narration available.');
+
+  // Candidate threads — load lazily if not present
+  renderCandidates(ev);
+  if ((!ev.candidates || ev.candidates.length === 0) && ev.cloudId) loadCandidates(ev);
+
+  // Dispatch buttons
+  renderDispatch(ev);
+  renderReplayGallery();   // refresh active highlight
+}
+
+async function loadCandidates(ev) {
+  const data = await cloudGet(`/api/events/${ev.cloudId}/candidates?token=${FW_CLOUD_TOKEN}`);
+  if (data && Array.isArray(data.candidates)) {
+    ev.candidates = data.candidates;
+    if (currentReplay && currentReplay.id === ev.id) renderCandidates(ev);
+  }
+}
+
+function renderCandidates(ev) {
+  const box = document.getElementById('replayCandidates');
+  const cands = ev.candidates || [];
+  if (cands.length === 0) {
+    box.innerHTML = `<div style="font-size:11px;color:var(--text-dim);">Single-model narration (multi-candidate threads generate on HIGH cloud events).</div>`;
+    setText('replaySelModel', '');
+    return;
+  }
+  const selModel = (cands.find(c => c.selected) || {}).model || '';
+  setText('replaySelModel', selModel ? `chosen: ${selModel}` : '');
+  box.innerHTML = cands.map((c,i) => `
+    <div class="cand-thread ${c.selected ? 'selected' : ''}" onclick="pickCandidate(${i})">
+      <div class="cand-model">🧠 ${c.model || 'model'} ${c.selected ? '<span class="cand-pick">✓ AI pick</span>' : ''}</div>
+      <div>${c.text || `<span style="color:var(--text-dim)">(no output${c.error ? ': '+c.error : ''})</span>`}</div>
+    </div>`).join('');
+}
+
+function pickCandidate(i) {
+  if (!currentReplay || !currentReplay.candidates) return;
+  const c = currentReplay.candidates[i];
+  if (!c || !c.text) return;
+  currentReplay.candidates.forEach((x,j) => x.selected = (j === i));
+  currentReplay.narrative = c.text;
+  setText('replayNarrText', c.text);
+  renderCandidates(currentReplay);
+  toast(`Using ${c.model} narration for dispatch`);
+}
+
+function renderDispatch(ev) {
+  const row = document.getElementById('replayDispatch');
+  const chans = [
+    ['slack','Slack','💬'], ['teams','Teams','🟦'], ['sms','SMS','✉'],
+    ['voice','Call','📞'], ['vms','VMS','🖥'], ['emergency','911','🚨'],
+  ];
+  row.innerHTML = chans.map(([key,label,icon]) => {
+    const avail = channelStatus[key];
+    const danger = key === 'emergency' ? 'danger' : '';
+    return `<button class="dispatch-btn ${danger} ${avail?'armed':''}" onclick="dispatchAlert('${key}')">
+      ${icon} ${label} ${avail ? '' : '<span class="ch-off">offline</span>'}
+    </button>`;
+  }).join('');
+}
+
+async function dispatchAlert(channel) {
+  if (!currentReplay) return;
+  if (channel === 'emergency' && !confirm('Trigger EMERGENCY 911 dispatch via RapidSOS? Only for genuine emergencies.')) return;
+  if (!FW_CLOUD_URL || !currentReplay.cloudId) {
+    toast(`(demo) Would dispatch via ${channel.toUpperCase()} — connect cloud backend to send for real`);
+    return;
+  }
+  toast(`Dispatching via ${channel}…`);
+  const res = await cloudPost(`/api/notify?token=${FW_CLOUD_TOKEN}`, {
+    event_id: currentReplay.cloudId,
+    channels: [channel],
+  });
+  if (res && res.ok) {
+    const r = res.results?.[channel];
+    const ok = r && !r.error && !r.skipped;
+    toast(ok ? `✓ Sent via ${channel}` : `${channel}: ${r?.skipped || r?.error || 'not configured'}`);
+  } else {
+    toast(`Dispatch failed for ${channel}`);
+  }
+}
+
+/* ── Bounding boxes on the event-detail snapshot ── */
+function drawDetailBoxes() {
+  const img = document.getElementById('detailSnapshot');
+  const canvas = document.getElementById('detailCanvas');
+  if (!img || !canvas || !currentDetail) return;
+  drawBoxesOnCanvas(canvas, img, currentDetail.boundingBoxes || []);
+}
+
+/* Shared box painter for any image+canvas pair */
+function drawBoxesOnCanvas(canvas, img, boxes) {
+  const W = img.clientWidth, H = img.clientHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if (!boxes || boxes.length === 0) return;
+  const natW = img.naturalWidth || 1, natH = img.naturalHeight || 1;
+  const scale = Math.min(W/natW, H/natH);
+  const dispW = natW*scale, dispH = natH*scale;
+  const offX = (W-dispW)/2, offY = (H-dispH)/2;
+  boxes.forEach(b => {
+    const cx = b.x ?? 0, cy = b.y ?? 0, bw = b.w ?? 0, bh = b.h ?? 0;
+    const x = offX + (cx - bw/2)*scale, y = offY + (cy - bh/2)*scale;
+    const w = bw*scale, h = bh*scale;
+    const label = (b.label || 'object').toLowerCase();
+    const isThreat = /gun|weapon|knife|firearm|pistol|rifle|intruder|fire|smoke/.test(label);
+    const isPerson = /person|people|human|man|woman/.test(label);
+    const color = isThreat ? '#ef4444' : isPerson ? '#f59e0b' : '#3b82f6';
+    ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.strokeRect(x,y,w,h);
+    const tag = `${b.label||'object'} ${b.confidence?Math.round(b.confidence*100)+'%':''}`.trim();
+    ctx.font = '11px system-ui, sans-serif';
+    const tw = ctx.measureText(tag).width + 10;
+    ctx.fillStyle = color; ctx.fillRect(x, Math.max(0,y-16), tw, 16);
+    ctx.fillStyle = '#fff'; ctx.fillText(tag, x+5, Math.max(11, y-4));
+  });
+}
+
+/* ── Bounding-box rendering on the replay canvas ── */
+function drawReplayBoxes() {
+  const img = document.getElementById('replayImg');
+  const canvas = document.getElementById('replayCanvas');
+  if (!img || !canvas || !currentReplay) return;
+  const showBoxes = document.getElementById('replayBoxToggle')?.checked;
+  drawBoxesOnCanvas(canvas, img, showBoxes ? (currentReplay.boundingBoxes || []) : []);
+}
+
+let replayPlaying = false, replayTimer = null, replayProgress = 0;
+function toggleReplayPlay() {
+  replayPlaying = !replayPlaying;
+  document.getElementById('replayPlayBtn').textContent = replayPlaying ? '❚❚' : '▶';
+  if (replayPlaying) {
+    replayTimer = setInterval(() => {
+      replayProgress = (replayProgress + 2) % 101;
+      document.getElementById('replayScrub').value = replayProgress;
+      scrubReplay(replayProgress);
+      if (replayProgress === 0) { toggleReplayPlay(); }
+    }, 120);
+  } else if (replayTimer) { clearInterval(replayTimer); }
+}
+function scrubReplay(v) {
+  const secs = Math.round((v/100) * 8);  // model a ~8s clip around the event
+  setText('replayClock', `00:0${Math.min(8,secs)}`.slice(-5));
+}
+
+/* ── Notification channel status chips ── */
+function renderChannelStatus(channels) {
+  channelStatus = channels || {};
+  const targets = ['channelStatusBox'];
+  const chans = [
+    ['teams','Teams'], ['slack','Slack'], ['sms','SMS'],
+    ['voice','Voice'], ['vms','VMS'], ['emergency','911'],
+  ];
+  const html = chans.map(([k,label]) => {
+    const on = channelStatus[k];
+    return `<span class="ch-chip ${on?'on':''}"><span class="ch-led"></span>${label}</span>`;
+  }).join('');
+  targets.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = html; });
+  // Refresh dispatch buttons if a replay is open
+  if (currentReplay) renderDispatch(currentReplay);
+}
 
 // ── All Activity Table ───────────────────────────────────────
 function renderActivityTable() {
@@ -2045,6 +2609,7 @@ function refreshLiveSnapshots() {
     ind.textContent = 'Cloud: connecting…';
     if (dot) dot.style.background = 'var(--warning)';
     await loadCloudEvents();
+    await loadFleet();
     document.getElementById('cloudStatsCard').style.display = 'block';
     setText('cfgCloudPush', FW_CLOUD_URL.replace(/https?:\/\//, '').split('/')[0]);
     document.getElementById('httpsPushStatus').textContent = 'Configured';
@@ -2053,7 +2618,13 @@ function refreshLiveSnapshots() {
     setInterval(loadCloudEvents, CLOUD_POLL_MS);
   } else {
     document.getElementById('cloudIndicator').textContent = 'Cloud: not configured';
+    // Offline mode — still show this camera in the fleet badge.
+    const badge = document.getElementById('badge-fleet');
+    if (badge) badge.textContent = '1';
   }
+
+  // Redraw bounding boxes when the layout changes.
+  window.addEventListener('resize', () => { drawReplayBoxes(); drawDetailBoxes(); });
 
   setInterval(refreshAll, POLL_INTERVAL_MS);
   setInterval(() => { updateAIIntel(); updateGroupBehavior(); renderActivityTable(); }, POLL_INTERVAL_MS);
