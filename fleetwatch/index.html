@@ -1,0 +1,2636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetWatcher AI</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #080d18;
+      --sidebar:     #0b1220;
+      --card:        #0f1829;
+      --card-border: #1a2540;
+      --card2:       #131e30;
+      --accent:      #1a6fff;
+      --accent-glow: rgba(26,111,255,0.18);
+      --escalate:    #ef4444;
+      --escalate-bg: rgba(239,68,68,0.12);
+      --challenge:   #f97316;
+      --challenge-bg:rgba(249,115,22,0.12);
+      --observe:     #3b82f6;
+      --observe-bg:  rgba(59,130,246,0.12);
+      --online:      #22c55e;
+      --offline:     #ef4444;
+      --warning:     #f59e0b;
+      --text:        #e2e8f0;
+      --text-dim:    #64748b;
+      --text-mid:    #94a3b8;
+      --border:      #1e2d44;
+      --sidebar-w:   230px;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; font-size: 14px; }
+
+    /* ─── Layout Shell ──────────────────────────────────────────────── */
+    #shell { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ─── Sidebar ───────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 100;
+    }
+    .brand {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 0 12px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .brand-text { line-height: 1.2; }
+    .brand-name { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+    .brand-sub  { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+
+    .nav { flex: 1; padding: 10px 0; }
+    .nav-section { padding: 14px 18px 4px; font-size: 10px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px;
+      color: var(--text-mid);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+      font-size: 13px;
+      font-weight: 500;
+      user-select: none;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: #fff; background: rgba(26,111,255,0.12); border-left-color: var(--accent); }
+    .nav-item .icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--escalate);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 1px 6px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .avatar {
+      width: 30px; height: 30px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .user-info { line-height: 1.3; min-width: 0; }
+    .user-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-email { font-size: 10px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-toggle { margin-left: auto; cursor: pointer; color: var(--text-dim); font-size: 14px; }
+
+    /* ─── Main Content ──────────────────────────────────────────────── */
+    #main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+    /* ─── Page Header ───────────────────────────────────────────────── */
+    .page-header {
+      padding: 20px 24px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+    .page-header p  { font-size: 13px; color: var(--text-dim); margin-left: 4px; }
+    .page-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .location-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 12px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      color: var(--text);
+    }
+
+    /* ─── Sections ──────────────────────────────────────────────────── */
+    .section { display: none; flex-direction: column; flex: 1; padding: 16px 24px 24px; gap: 16px; }
+    .section.active { display: flex; }
+
+    /* ─── Status Row ────────────────────────────────────────────────── */
+    .status-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    @media (max-width: 900px) { .status-row { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 800; color: #fff; line-height: 1; }
+    .stat-sub   { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    .monitoring-card { border-color: rgba(34,197,94,0.3); }
+    .monitoring-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--online), transparent);
+    }
+    .status-active {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 22px; font-weight: 800; color: var(--online); letter-spacing: 1px;
+    }
+    .pulse {
+      width: 10px; height: 10px;
+      background: var(--online);
+      border-radius: 50%;
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+      50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+    }
+
+    .sensor-counts { display: flex; gap: 16px; margin-top: 10px; }
+    .sensor-count { display: flex; flex-direction: column; gap: 2px; }
+    .sensor-count .num  { font-size: 18px; font-weight: 700; }
+    .sensor-count .lbl  { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+    .sensor-count.online .num  { color: var(--online); }
+    .sensor-count.warning .num { color: var(--warning); }
+    .sensor-count.offline .num { color: var(--offline); }
+    .view-details-link { font-size: 11px; color: var(--accent); cursor: pointer; margin-top: 8px; display: inline-block; }
+
+    /* ─── Alert List Panel ──────────────────────────────────────────── */
+    .content-row { display: grid; grid-template-columns: 1fr 280px; gap: 16px; flex: 1; }
+    @media (max-width: 1100px) { .content-row { grid-template-columns: 1fr; } }
+
+    .alerts-panel { display: flex; flex-direction: column; gap: 12px; }
+
+    .filter-bar {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 7px; padding: 6px 12px;
+      font-size: 12px; color: var(--text-mid); cursor: pointer;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+    .search-input {
+      flex: 1; min-width: 160px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 7px; padding: 7px 12px 7px 32px;
+      color: var(--text); font-size: 12px;
+      outline: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 8px center;
+      background-size: 14px;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .bulk-btn {
+      margin-left: auto;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 7px; padding: 6px 14px;
+      font-size: 12px; color: var(--text-mid); cursor: pointer; font-weight: 600;
+    }
+
+    .list-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 600; color: var(--text);
+    }
+    .list-count {
+      background: var(--accent); color: #fff;
+      border-radius: 12px; padding: 1px 8px;
+      font-size: 11px; font-weight: 700;
+    }
+
+    /* ─── Alert Card ────────────────────────────────────────────────── */
+    .alert-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      display: flex;
+      gap: 0;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .alert-card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(26,111,255,0.2); }
+    .alert-card.escalate { border-left: 3px solid var(--escalate); }
+    .alert-card.challenge { border-left: 3px solid var(--challenge); }
+    .alert-card.observe   { border-left: 3px solid var(--observe); }
+
+    .card-thumb {
+      width: 120px; min-width: 120px;
+      background: #000;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+    .card-thumb .thumb-placeholder {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #0d1a2e 0%, #0f2040 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; opacity: 0.5;
+    }
+    .video-badge {
+      position: absolute; top: 6px; left: 6px;
+      background: rgba(0,0,0,0.75); color: #fff;
+      border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600;
+    }
+
+    .card-body { flex: 1; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .card-title {
+      font-size: 13px; font-weight: 600; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .card-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+    .card-meta-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-dim); }
+    .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+    .tag {
+      border-radius: 5px; padding: 2px 8px;
+      font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+    .tag.security  { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(59,130,246,0.1); }
+    .tag.safety    { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(16,185,129,0.1); }
+    .tag.ops       { color: #a78bfa; border-color: rgba(167,139,250,0.4); background: rgba(139,92,246,0.1); }
+
+    .priority-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      border-radius: 6px; padding: 3px 10px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .priority-badge.escalate { background: var(--escalate-bg); color: var(--escalate); border: 1px solid rgba(239,68,68,0.3); }
+    .priority-badge.challenge { background: var(--challenge-bg); color: var(--challenge); border: 1px solid rgba(249,115,22,0.3); }
+    .priority-badge.observe   { background: var(--observe-bg);   color: var(--observe);   border: 1px solid rgba(59,130,246,0.3); }
+
+    .card-actions { display: flex; flex-direction: column; justify-content: center; padding: 12px; gap: 6px; }
+    .btn-view {
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 7px; padding: 7px 14px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-view:hover { opacity: 0.85; }
+    .btn-resolve {
+      background: transparent; color: var(--text-dim);
+      border: 1px solid var(--border); border-radius: 7px; padding: 6px 14px;
+      font-size: 12px; cursor: pointer; font-weight: 500; white-space: nowrap;
+    }
+
+    /* ─── Side Panel (Map / Quick Stats) ───────────────────────────── */
+    .side-panel { display: flex; flex-direction: column; gap: 14px; }
+    .mini-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .mini-card-title { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; font-weight: 600; }
+
+    .level-bars { display: flex; flex-direction: column; gap: 8px; }
+    .level-bar { display: flex; align-items: center; gap: 8px; }
+    .level-bar .lbl { width: 70px; font-size: 11px; color: var(--text-mid); }
+    .bar-track { flex: 1; height: 5px; background: var(--card-border); border-radius: 3px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .bar-fill.escalate { background: var(--escalate); }
+    .bar-fill.challenge{ background: var(--challenge);}
+    .bar-fill.observe  { background: var(--observe);  }
+    .level-bar .num { font-size: 11px; font-weight: 700; color: var(--text); min-width: 20px; text-align: right; }
+
+    .cam-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .cam-thumb {
+      aspect-ratio: 16/9;
+      background: #050a12;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .cam-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+    .cam-label {
+      position: absolute; bottom: 4px; left: 4px;
+      background: rgba(0,0,0,0.7); color: #fff;
+      font-size: 9px; font-weight: 600;
+      border-radius: 3px; padding: 1px 5px;
+    }
+    .cam-status-dot {
+      position: absolute; top: 5px; right: 5px;
+      width: 7px; height: 7px; border-radius: 50%;
+    }
+    .cam-status-dot.online  { background: var(--online); }
+    .cam-status-dot.offline { background: var(--offline); }
+
+    /* ─── Alert Detail View ─────────────────────────────────────────── */
+    .detail-back {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--text-dim); cursor: pointer; font-size: 13px; margin-bottom: 12px;
+    }
+    .detail-back:hover { color: var(--text); }
+
+    .detail-title-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .detail-title-row h2 { font-size: 18px; font-weight: 700; color: #fff; flex: 1; }
+    .detail-title-row .btn-export { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 7px 14px; font-size: 12px; cursor: pointer; }
+    .detail-title-row .btn-resolve-main { background: var(--online); color: #fff; border: none; border-radius: 7px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+    .detail-grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+    @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+
+    .evidence-panel { display: flex; flex-direction: column; gap: 12px; }
+    .evidence-header { display: flex; align-items: center; justify-content: space-between; }
+    .evidence-label { font-size: 13px; font-weight: 600; color: var(--text); }
+    .evidence-nav { display: flex; align-items: center; gap: 6px; }
+    .ev-btn { background: var(--card2); border: 1px solid var(--border); color: var(--text-mid); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .ev-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+    .ev-dot.active { background: var(--accent); }
+
+    .video-player {
+      aspect-ratio: 16/9;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .video-player img { width: 100%; height: 100%; object-fit: cover; }
+    .video-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      background: linear-gradient(transparent 60%, rgba(0,0,0,0.6));
+    }
+    .video-controls {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      color: #fff;
+    }
+    .v-btn { background: none; border: none; color: #fff; cursor: pointer; font-size: 16px; padding: 4px; }
+    .v-timestamp { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: auto; }
+
+    .detail-meta {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .meta-row {
+      display: grid; grid-template-columns: 110px 1fr auto;
+      align-items: start;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .meta-row:last-child { border-bottom: none; }
+    .meta-key { font-size: 12px; color: var(--text-dim); font-weight: 500; }
+    .meta-val { font-size: 12px; color: var(--text); }
+    .meta-edit { font-size: 11px; color: var(--accent); cursor: pointer; white-space: nowrap; }
+
+    /* ─── Camera Health Section ─────────────────────────────────────── */
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .health-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .health-card-header { display: flex; align-items: center; justify-content: space-between; }
+    .health-cam-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .status-pill {
+      border-radius: 6px; padding: 2px 10px; font-size: 11px; font-weight: 700;
+    }
+    .status-pill.online  { background: rgba(34,197,94,0.15);  color: var(--online);  border: 1px solid rgba(34,197,94,0.3); }
+    .status-pill.offline { background: rgba(239,68,68,0.15);  color: var(--offline); border: 1px solid rgba(239,68,68,0.3); }
+    .status-pill.warning { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+    .health-meta { display: flex; flex-direction: column; gap: 3px; }
+    .health-meta-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; }
+    .health-meta-key { color: var(--text-dim); }
+    .health-meta-val { color: var(--text); font-weight: 500; }
+    .offline-duration { color: var(--offline) !important; font-weight: 500; }
+    .last-seen        { color: var(--online) !important; }
+
+    .health-bar { background: var(--card-border); border-radius: 3px; height: 3px; overflow: hidden; }
+    .health-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+    /* ─── All Activity Section ──────────────────────────────────────── */
+    .activity-table-wrap { overflow-x: auto; }
+    .activity-table {
+      width: 100%; border-collapse: collapse; font-size: 12px;
+    }
+    .activity-table th {
+      background: var(--card2); padding: 10px 14px;
+      text-align: left; color: var(--text-dim); font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .activity-table td {
+      padding: 10px 14px; border-bottom: 1px solid rgba(30,45,68,0.5);
+      vertical-align: middle;
+    }
+    .activity-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .activity-table .title-cell { color: var(--accent); cursor: pointer; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-table .desc-cell  { color: var(--text-dim); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .status-resolved { color: var(--online); font-size: 11px; font-weight: 600; }
+    .status-open     { color: var(--warning); font-size: 11px; font-weight: 600; }
+
+    .tbl-action-link { color: var(--accent); cursor: pointer; font-size: 11px; margin-right: 8px; }
+    .tbl-action-link:hover { text-decoration: underline; }
+
+    /* ─── Live View Section ─────────────────────────────────────────── */
+    .live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+    .live-cam {
+      background: #000;
+      border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--card-border);
+      position: relative;
+      aspect-ratio: 16/9;
+    }
+    .live-cam img { width: 100%; height: 100%; object-fit: cover; }
+    .live-cam-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      justify-content: space-between;
+      padding: 10px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.6) 100%);
+    }
+    .live-cam-name { font-size: 12px; font-weight: 600; color: #fff; }
+    .live-cam-footer { display: flex; align-items: center; justify-content: space-between; }
+    .live-cam-time { font-size: 10px; color: rgba(255,255,255,0.7); }
+    .live-cam-status { font-size: 10px; color: var(--online); font-weight: 600; }
+    .live-rec { display: flex; align-items: center; gap: 4px; }
+    .rec-dot { width: 6px; height: 6px; background: var(--escalate); border-radius: 50%; animation: pulse-red 1.2s infinite; }
+    @keyframes pulse-red {
+      0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+
+    /* ─── Admin / ONVIF Section ─────────────────────────────────────── */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .info-block { background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; }
+    .info-block-title { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 12px; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(30,45,68,0.6); }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { font-size: 11px; color: var(--text-dim); }
+    .info-val { font-size: 11px; color: var(--text); font-weight: 500; text-align: right; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .info-val.accent { color: var(--accent); }
+    .copy-btn { font-size: 10px; color: var(--accent); cursor: pointer; margin-left: 6px; }
+
+    /* ─── Modal ─────────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 420px; max-width: 95vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; color: #fff; }
+    .modal-close { cursor: pointer; color: var(--text-dim); font-size: 18px; }
+    .modal-body { padding: 16px 20px; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+    .modal-counts { display: flex; gap: 24px; margin-bottom: 14px; }
+    .modal-count { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .modal-count .n { font-size: 20px; font-weight: 700; }
+    .modal-count .l { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+    .modal-count.online  .n { color: var(--online);  }
+    .modal-count.warning .n { color: var(--warning); }
+    .modal-count.offline .n { color: var(--offline); }
+    .modal-sensor-list { display: flex; flex-direction: column; gap: 10px; }
+    .modal-sensor {
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .modal-sensor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .modal-sensor-name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .modal-sensor-meta { font-size: 11px; color: var(--text-dim); line-height: 1.7; }
+    .offline-text { color: var(--offline); font-size: 11px; font-weight: 500; margin-top: 2px; }
+    .online-text  { color: var(--online);  font-size: 11px; font-weight: 500; margin-top: 2px; }
+    .btn-close { background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 7px 20px; cursor: pointer; font-size: 13px; }
+
+    /* ─── Toast ─────────────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 16px;
+      font-size: 12px; color: var(--text);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 9999; opacity: 0; transform: translateY(8px);
+      transition: all 0.2s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ─── Empty State ───────────────────────────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px; color: var(--text-dim); gap: 8px; text-align: center;
+    }
+    .empty-state .icon { font-size: 36px; margin-bottom: 8px; opacity: 0.4; }
+    .empty-state .msg  { font-size: 14px; font-weight: 600; color: var(--text-mid); }
+    .empty-state .sub  { font-size: 12px; }
+
+    /* ─── Scrollbar ─────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* ─── Utility ───────────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+    .chip {
+      border-radius: 5px; padding: 2px 8px;
+      font-size: 10px; font-weight: 600; border: 1px solid;
+    }
+    .divider { border: none; border-top: 1px solid var(--border); }
+    .fw-badge {
+      display: inline-block;
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+      border-radius: 3px; padding: 2px 5px;
+    }
+    .fw-badge.esc  { background: var(--escalate-bg); color: var(--escalate); }
+    .fw-badge.chal { background: var(--challenge-bg); color: var(--challenge); }
+    .fw-badge.obs  { background: var(--observe-bg);   color: var(--observe); }
+
+    /* ── Video Replay ── */
+    .replay-layout { display:grid; grid-template-columns: 1fr 320px; gap:14px; align-items:start; }
+    @media (max-width: 1100px){ .replay-layout{ grid-template-columns:1fr; } }
+    .replay-stage { display:flex; flex-direction:column; gap:12px; }
+    .replay-canvas-wrap {
+      position:relative; width:100%; aspect-ratio:16/9; background:#05070d;
+      border:1px solid var(--border); border-radius:12px; overflow:hidden;
+    }
+    .replay-canvas-wrap img { width:100%; height:100%; object-fit:contain; display:block; }
+    .replay-canvas-wrap canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .replay-empty {
+      position:absolute; inset:0; display:flex; flex-direction:column; gap:10px;
+      align-items:center; justify-content:center; color:var(--text-dim); text-align:center;
+    }
+    .replay-empty .icon { font-size:40px; opacity:0.4; }
+    .replay-empty .msg { font-size:12px; max-width:260px; }
+    .replay-hud {
+      position:absolute; top:10px; left:10px; right:10px; display:flex; align-items:center; gap:8px;
+      background:rgba(0,0,0,0.55); color:#fff; font-size:11px; font-weight:700; letter-spacing:0.5px;
+      padding:5px 10px; border-radius:6px; backdrop-filter:blur(4px);
+    }
+    .rec-dot { width:8px;height:8px;border-radius:50%;background:#ef4444; animation:pulse 1.4s infinite; }
+    .replay-controls {
+      display:flex; align-items:center; gap:12px; background:var(--card);
+      border:1px solid var(--border); border-radius:10px; padding:8px 14px;
+    }
+    .replay-narration { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+    .replay-list { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+    .replay-clip {
+      display:flex; gap:10px; padding:8px; border-radius:8px; cursor:pointer; border:1px solid transparent;
+      transition:background .15s, border-color .15s;
+    }
+    .replay-clip:hover { background:rgba(255,255,255,0.04); }
+    .replay-clip.active { background:rgba(26,111,255,0.12); border-color:var(--accent); }
+    .replay-clip .thumb { width:64px; height:40px; border-radius:5px; object-fit:cover; background:#05070d; flex-shrink:0; }
+    .replay-clip .ci-title { font-size:11px; color:var(--text); font-weight:600; line-height:1.3;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .replay-clip .ci-meta { font-size:10px; color:var(--text-dim); margin-top:2px; }
+    .cand-thread {
+      border:1px solid var(--border); border-radius:8px; padding:9px 11px; font-size:12px;
+      line-height:1.5; cursor:pointer; transition:border-color .15s, background .15s;
+    }
+    .cand-thread:hover { background:rgba(255,255,255,0.03); }
+    .cand-thread.selected { border-color:var(--accent); background:rgba(26,111,255,0.08); }
+    .cand-thread .cand-model {
+      font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;
+      color:var(--accent); margin-bottom:3px; display:flex; align-items:center; gap:6px;
+    }
+    .cand-thread .cand-pick { margin-left:auto; color:var(--online); font-size:9px; }
+    .dispatch-row { display:flex; flex-wrap:wrap; gap:8px; }
+    .dispatch-btn {
+      display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; font-size:11px;
+      font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--bg); color:var(--text);
+      transition:border-color .15s, background .15s;
+    }
+    .dispatch-btn:hover { border-color:var(--accent); background:rgba(26,111,255,0.08); }
+    .dispatch-btn.armed { border-color:var(--online); }
+    .dispatch-btn.danger:hover { border-color:var(--escalate); background:rgba(239,68,68,0.1); }
+    .dispatch-btn .ch-off { color:var(--text-dim); font-size:9px; }
+
+    /* ── Bounding boxes (shared by replay + detail) ── */
+    .bbox-layer { position:absolute; inset:0; pointer-events:none; }
+    .bbox {
+      position:absolute; border:2px solid var(--escalate); border-radius:3px;
+      box-shadow:0 0 0 1px rgba(0,0,0,0.4);
+    }
+    .bbox.threat { border-color:#ef4444; }
+    .bbox.person { border-color:#f59e0b; }
+    .bbox.object { border-color:#3b82f6; }
+    .bbox-tag {
+      position:absolute; top:-19px; left:-2px; white-space:nowrap;
+      background:var(--escalate); color:#fff; font-size:9px; font-weight:700;
+      padding:1px 6px; border-radius:3px;
+    }
+    .bbox.person .bbox-tag { background:#f59e0b; }
+    .bbox.object .bbox-tag { background:#3b82f6; }
+
+    /* ── Camera Fleet ── */
+    .fleet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+    .fleet-card {
+      background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;
+      cursor:pointer; transition:border-color .15s, transform .15s;
+    }
+    .fleet-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+    .fleet-thumb { width:100%; aspect-ratio:16/9; background:#05070d; object-fit:cover; display:block; }
+    .fleet-body { padding:11px 13px; }
+    .fleet-name { font-size:13px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:7px; }
+    .fleet-dot { width:8px;height:8px;border-radius:50%; flex-shrink:0; }
+    .fleet-dot.online { background:var(--online); box-shadow:0 0 6px var(--online); }
+    .fleet-dot.offline{ background:var(--offline); }
+    .fleet-dot.warning{ background:var(--warning); }
+    .fleet-meta { font-size:10px; color:var(--text-dim); margin-top:5px; line-height:1.6; }
+    .fleet-link { font-size:10px; color:var(--accent); margin-top:6px; display:inline-block; }
+
+    /* ── Channel status chips ── */
+    .ch-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+    .ch-chip {
+      display:flex; align-items:center; gap:6px; font-size:11px; padding:4px 10px;
+      border-radius:20px; border:1px solid var(--border); color:var(--text-mid);
+    }
+    .ch-chip .ch-led { width:7px;height:7px;border-radius:50%; background:var(--text-dim); }
+    .ch-chip.on { color:var(--text); border-color:rgba(34,197,94,0.4); }
+    .ch-chip.on .ch-led { background:var(--online); box-shadow:0 0 5px var(--online); }
+  </style>
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- ══════════════════ SIDEBAR ══════════════════ -->
+  <nav id="sidebar">
+    <div class="brand">
+      <div class="brand-icon">👁</div>
+      <div class="brand-text">
+        <div class="brand-name">FleetWatcher</div>
+        <div class="brand-sub">AI Security</div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="nav-section">Monitor</div>
+      <div class="nav-item active" data-section="dashboard">
+        <span class="icon">⊞</span> Alerts Dashboard
+        <span class="nav-badge" id="badge-alerts">0</span>
+      </div>
+      <div class="nav-item" data-section="activity">
+        <span class="icon">☰</span> All Activity
+      </div>
+      <div class="nav-item" data-section="liveview">
+        <span class="icon">▶</span> Live View
+      </div>
+      <div class="nav-item" data-section="replay">
+        <span class="icon">⎌</span> Video Replay
+      </div>
+
+      <div class="nav-section">Fleet</div>
+      <div class="nav-item" data-section="fleet">
+        <span class="icon">⛁</span> Camera Fleet
+        <span class="nav-badge" id="badge-fleet" style="background:var(--online)">0</span>
+      </div>
+
+      <div class="nav-section">Intelligence</div>
+      <div class="nav-item" data-section="ai-intel">
+        <span class="icon">✦</span> AI Intel
+      </div>
+      <div class="nav-item" data-section="group-behavior">
+        <span class="icon">⬡</span> Group Behavior
+      </div>
+
+      <div class="nav-section">System</div>
+      <div class="nav-item" data-section="camera-health">
+        <span class="icon">◉</span> Camera Health
+      </div>
+      <div class="nav-item" data-section="onvif">
+        <span class="icon">≋</span> ONVIF / Stream
+      </div>
+      <div class="nav-item" data-section="admin">
+        <span class="icon">⚙</span> Admin
+      </div>
+    </div>
+
+    <div style="padding:8px 18px 4px; font-size:10px; display:flex; align-items:center; gap:6px; color:var(--text-dim);">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--text-dim);display:inline-block;" id="cloudDot"></span>
+      <span id="cloudIndicator">Cloud: not configured</span>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="avatar" id="avatarInitials">ML</div>
+      <div class="user-info">
+        <div class="user-name" id="sidebarUserName">Loading…</div>
+        <div class="user-email" id="sidebarUserEmail">camera</div>
+      </div>
+      <span class="sidebar-toggle" title="Collapse">‹</span>
+    </div>
+  </nav>
+
+  <!-- ══════════════════ MAIN ══════════════════ -->
+  <div id="main">
+
+    <!-- ── PAGE HEADER (shared) ── -->
+    <div class="page-header" id="pageHeader">
+      <h1 id="pageTitle">Alerts Dashboard</h1>
+      <p id="pageDesc">View and take action on important location alerts.</p>
+      <div class="page-actions">
+        <div class="location-pill">
+          <span>📍</span> <span id="locationName">Loading…</span> ▾
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: DASHBOARD ════════ -->
+    <div class="section active" id="section-dashboard">
+
+      <div class="status-row">
+        <!-- Monitoring Status -->
+        <div class="stat-card monitoring-card">
+          <div class="stat-label">Monitoring Status</div>
+          <div class="status-active"><span class="pulse"></span> ACTIVE</div>
+          <div class="stat-sub" id="monitorSub">FleetWatcher AI running</div>
+        </div>
+
+        <!-- Alerts 24h -->
+        <div class="stat-card">
+          <div class="stat-label">Alerts Last 24 Hours</div>
+          <div class="stat-value" id="alerts24h">—</div>
+          <div class="stat-sub" id="alerts24hSub">No Change</div>
+        </div>
+
+        <!-- Sensor Status -->
+        <div class="stat-card">
+          <div class="stat-label">Sensors Status</div>
+          <div class="sensor-counts">
+            <div class="sensor-count online">
+              <span class="num" id="sensorsOnline">—</span>
+              <span class="lbl">Online</span>
+            </div>
+            <div class="sensor-count warning">
+              <span class="num" id="sensorsWarning">0</span>
+              <span class="lbl">Warning</span>
+            </div>
+            <div class="sensor-count offline">
+              <span class="num" id="sensorsOffline">—</span>
+              <span class="lbl">Offline</span>
+            </div>
+          </div>
+          <span class="view-details-link" onclick="openSensorModal()">View Details →</span>
+        </div>
+      </div>
+
+      <!-- Alert list + side panel -->
+      <div class="content-row">
+        <div class="alerts-panel">
+          <!-- Filter bar -->
+          <div class="filter-bar">
+            <input class="search-input" type="text" placeholder="Search events…" id="searchInput" oninput="renderAlerts()">
+            <div class="filter-btn" onclick="cycleFilter('priority')">
+              <span id="filterPriorityLabel">All Priorities</span> ▾
+            </div>
+            <div class="filter-btn" onclick="cycleFilter('type')">
+              <span id="filterTypeLabel">All Types</span> ▾
+            </div>
+            <button class="bulk-btn" onclick="toast('Bulk edit — select events first')">Bulk Edit</button>
+          </div>
+
+          <div class="list-header">
+            Alert List <span class="list-count" id="alertCount">0</span>
+          </div>
+
+          <div id="alertList"></div>
+        </div>
+
+        <!-- Side panel -->
+        <div class="side-panel">
+          <!-- FleetWatch level breakdown -->
+          <div class="mini-card">
+            <div class="mini-card-title">Event Levels</div>
+            <div class="level-bars">
+              <div class="level-bar">
+                <span class="lbl">ESCALATE</span>
+                <div class="bar-track"><div class="bar-fill escalate" id="barEsc" style="width:0%"></div></div>
+                <span class="num escalate" id="numEsc" style="color:var(--escalate)">0</span>
+              </div>
+              <div class="level-bar">
+                <span class="lbl">CHALLENGE</span>
+                <div class="bar-track"><div class="bar-fill challenge" id="barChal" style="width:0%"></div></div>
+                <span class="num" id="numChal" style="color:var(--challenge)">0</span>
+              </div>
+              <div class="level-bar">
+                <span class="lbl">OBSERVE</span>
+                <div class="bar-track"><div class="bar-fill observe" id="barObs" style="width:0%"></div></div>
+                <span class="num" id="numObs" style="color:var(--observe)">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live camera thumbnails -->
+          <div class="mini-card">
+            <div class="mini-card-title">Live Cameras</div>
+            <div class="cam-grid" id="camGrid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Cloud Backend Stats -->
+          <div class="mini-card" id="cloudStatsCard" style="display:none;">
+            <div class="mini-card-title">Cloud Backend</div>
+            <div style="font-size:11px; display:flex; flex-direction:column; gap:5px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text-dim)">Total Events</span>
+                <span id="cloudTotal" style="color:var(--text);font-weight:500">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--escalate)">High Severity</span>
+                <span id="cloudHigh" style="color:var(--escalate);font-weight:600">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--observe)">Low Severity</span>
+                <span id="cloudLow" style="color:var(--observe);font-weight:600">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Device info quick card -->
+          <div class="mini-card">
+            <div class="mini-card-title">Device</div>
+            <div style="font-size:11px; display:flex; flex-direction:column; gap:5px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text-dim)">Model</span>
+                <span id="devModel" style="color:var(--text);font-weight:500">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text-dim)">Serial</span>
+                <span id="devSerial" style="color:var(--text);font-weight:500">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text-dim)">Firmware</span>
+                <span id="devFirmware" style="color:var(--text);font-weight:500">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text-dim)">Arch</span>
+                <span id="devArch" style="color:var(--text);font-weight:500">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /dashboard -->
+
+    <!-- ════════ SECTION: ALERT DETAIL ════════ -->
+    <div class="section" id="section-detail">
+      <div class="detail-back" onclick="showSection('dashboard')">‹ Back to Dashboard</div>
+      <div class="detail-title-row">
+        <div class="priority-badge escalate" id="detailPriorityBadge">ESCALATE</div>
+        <h2 id="detailTitle">—</h2>
+        <button class="detail-title-row btn-export" onclick="toast('Exporting event…')">Export</button>
+        <button class="detail-title-row btn-resolve-main" onclick="resolveCurrentEvent()">Resolve Alert</button>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:12px;">
+        <div class="nav-item active" style="border-radius:0; border-left:none; padding:8px 20px;" id="tab-event" onclick="switchDetailTab('event')">Event Details</div>
+        <div class="nav-item" style="border-radius:0; border-left:none; padding:8px 20px;" id="tab-notif" onclick="switchDetailTab('notif')">Notifications <span style="margin-left:4px;opacity:0.5">0</span></div>
+        <div class="nav-item" style="border-radius:0; border-left:none; padding:8px 20px;" id="tab-hist" onclick="switchDetailTab('hist')">Event History</div>
+      </div>
+
+      <div class="detail-grid" id="detailEventTab">
+        <!-- Evidence -->
+        <div class="evidence-panel">
+          <div class="evidence-header">
+            <span class="evidence-label">Sensor Evidence (1/<span id="evidenceTotal">1</span>)</span>
+            <div class="evidence-nav">
+              <button class="ev-btn" onclick="changeEvidence(-1)">‹</button>
+              <span class="ev-dot active"></span>
+              <span class="ev-dot" id="evDot2"></span>
+              <button class="ev-btn" onclick="changeEvidence(1)">›</button>
+            </div>
+          </div>
+          <div class="video-player" id="detailVideoPlayer" style="position:relative;">
+            <img id="detailSnapshot" src="" alt="Camera snapshot" onload="drawDetailBoxes()" />
+            <canvas id="detailCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></canvas>
+            <div class="video-overlay">
+              <div style="padding:8px 12px; display:flex; gap:6px; align-items:center;">
+                <span style="background:rgba(0,0,0,0.6); color:#fff; font-size:10px; border-radius:4px; padding:3px 8px;">Aidant Actions</span>
+              </div>
+              <div class="video-controls">
+                <button class="v-btn" onclick="toast('Playing clip…')">▶</button>
+                <button class="v-btn" onclick="toast('Audio muted')">🔇</button>
+                <input type="range" min="0" max="100" value="45" style="flex:1; accent-color:var(--accent); height:3px;">
+                <span class="v-timestamp" id="detailTimestamp">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="detail-meta" id="detailMeta">
+          <div class="meta-row">
+            <span class="meta-key">Priority</span>
+            <span class="meta-val" id="metaPriority"><span class="priority-badge escalate">ESCALATE</span></span>
+            <span class="meta-edit">Edit</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Title</span>
+            <span class="meta-val" id="metaTitle">—</span>
+            <span class="meta-edit">Edit</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Description</span>
+            <span class="meta-val" id="metaDesc" style="max-width:180px; font-size:11px; line-height:1.5;">—</span>
+            <span class="meta-edit">Edit</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Time</span>
+            <span class="meta-val" id="metaTime">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Date</span>
+            <span class="meta-val" id="metaDate">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Location</span>
+            <span class="meta-val" id="metaLocation">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Zone</span>
+            <span class="meta-val" id="metaZone">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Sensors</span>
+            <span class="meta-val" id="metaSensors">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Status</span>
+            <span class="meta-val" id="metaStatus"><span style="color:var(--warning);font-weight:600;">Open</span></span>
+            <span class="meta-edit" onclick="resolveCurrentEvent()">Resolve</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">FW Level</span>
+            <span class="meta-val" id="metaFWLevel">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Event Type</span>
+            <span class="meta-val" id="metaEventType">—</span>
+            <span class="meta-edit">Edit</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Threat Score</span>
+            <span class="meta-val" id="metaThreatScore">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">Action</span>
+            <span class="meta-val" id="metaAction">—</span>
+            <span class="meta-edit"></span>
+          </div>
+          <div class="meta-row" id="feedbackRow" style="display:none;">
+            <span class="meta-key">Feedback</span>
+            <span class="meta-val" style="display:flex;gap:6px;">
+              <button class="btn-resolve" style="padding:4px 10px;font-size:11px;" onclick="submitFeedback('false_alarm')">False Alarm</button>
+              <button class="btn-resolve" style="padding:4px 10px;font-size:11px;color:var(--escalate);border-color:rgba(239,68,68,0.3);" onclick="submitFeedback('real_threat')">Real Threat</button>
+            </span>
+            <span class="meta-edit"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Council Verdict Panel -->
+      <div id="councilPanel" style="display:none; grid-column:1/-1; margin-top:14px;">
+        <div class="stat-card">
+          <div class="stat-label" style="margin-bottom:10px;">Reasoning Council Verdict</div>
+          <div id="councilNarrative" style="font-size:13px;line-height:1.7;color:var(--text);margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" id="councilSeats"></div>
+        </div>
+      </div>
+    </div><!-- /detail -->
+
+    <!-- ════════ SECTION: ALL ACTIVITY ════════ -->
+    <div class="section" id="section-activity">
+      <div class="filter-bar">
+        <input class="search-input" type="text" placeholder="Search Activity by Title or Description" id="actSearchInput" oninput="renderActivity()" style="max-width:360px;">
+        <div class="filter-btn">All Dates ▾</div>
+        <div class="filter-btn">All Event Types ▾</div>
+        <div class="filter-btn">All Priorities ▾</div>
+        <div class="filter-btn">Any Alert Status ▾</div>
+        <button class="bulk-btn" style="margin-left:auto;" onclick="toast('Exporting results…')">Export Results</button>
+      </div>
+      <div class="list-header">All Activity <span class="list-count" id="activityCount">0</span></div>
+      <div class="activity-table-wrap">
+        <table class="activity-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox"></th>
+              <th>Priority ↕</th>
+              <th>Event Title and Description ↕</th>
+              <th>Timestamp ↕</th>
+              <th>Location ↕</th>
+              <th>Event Type ↕</th>
+              <th>Event Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="activityTableBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:12px;font-size:12px;color:var(--text-dim);">
+        <button class="bulk-btn" onclick="toast('Previous page')">← Previous</button>
+        <span>Page 1 of 1</span>
+        <button class="bulk-btn" onclick="toast('Next page')">Next →</button>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: LIVE VIEW ════════ -->
+    <div class="section" id="section-liveview">
+      <div class="live-grid" id="liveGrid"></div>
+    </div>
+
+    <!-- ════════ SECTION: VIDEO REPLAY ════════ -->
+    <div class="section" id="section-replay">
+      <div class="filter-bar">
+        <input class="search-input" type="text" id="replaySearch" placeholder="Search replays by description, zone, camera…" oninput="renderReplayGallery()" style="max-width:340px;">
+        <div class="filter-btn" id="replayFilterBtn" onclick="cycleReplayFilter()"><span id="replayFilterLabel">High Alerts Only</span> ▾</div>
+        <span style="margin-left:auto; font-size:11px; color:var(--text-dim);">Clips are reviewed by the Reasoning Council with bounding boxes drawn on threats.</span>
+      </div>
+      <div class="replay-layout">
+        <!-- Player -->
+        <div class="replay-stage">
+          <div class="replay-canvas-wrap" id="replayCanvasWrap">
+            <img id="replayImg" src="" alt="Replay frame" crossorigin="anonymous" onload="drawReplayBoxes()">
+            <canvas id="replayCanvas"></canvas>
+            <div class="replay-empty" id="replayEmpty">
+              <div class="icon">⎌</div>
+              <div class="msg">Select a high-alert clip to replay with AI bounding boxes.</div>
+            </div>
+            <div class="replay-hud" id="replayHud" style="display:none;">
+              <span class="rec-dot"></span> <span id="replayHudLabel">REVIEW</span>
+              <span id="replayHudTime" style="margin-left:auto;"></span>
+            </div>
+          </div>
+          <div class="replay-controls" id="replayControls" style="display:none;">
+            <button class="v-btn" onclick="toggleReplayPlay()" id="replayPlayBtn">▶</button>
+            <input type="range" min="0" max="100" value="0" id="replayScrub" style="flex:1; accent-color:var(--accent); height:3px;" oninput="scrubReplay(this.value)">
+            <label style="font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:5px;cursor:pointer;">
+              <input type="checkbox" id="replayBoxToggle" checked onchange="drawReplayBoxes()"> Boxes
+            </label>
+            <span class="v-timestamp" id="replayClock">00:00</span>
+          </div>
+          <!-- AI narration + multi-candidate threads -->
+          <div class="replay-narration" id="replayNarration" style="display:none;">
+            <div class="stat-label" style="margin-bottom:8px;">AI Threat Narration <span id="replaySelModel" style="float:right;font-weight:400;color:var(--text-dim);"></span></div>
+            <div id="replayNarrText" style="font-size:13px;line-height:1.7;color:var(--text);padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"></div>
+            <div class="stat-label" style="margin:14px 0 6px;">Candidate Description Threads</div>
+            <div id="replayCandidates" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <div class="stat-label" style="margin:14px 0 6px;">Dispatch Alert</div>
+            <div class="dispatch-row" id="replayDispatch"></div>
+          </div>
+        </div>
+        <!-- Clip list -->
+        <div class="replay-list">
+          <div class="list-header">High-Alert Clips <span class="list-count" id="replayCount">0</span></div>
+          <div id="replayList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: CAMERA FLEET ════════ -->
+    <div class="section" id="section-fleet">
+      <div class="status-row">
+        <div class="stat-card">
+          <div class="stat-label">Cameras Synced</div>
+          <div class="stat-value" id="fleetTotal" style="color:#fff">—</div>
+          <div class="stat-sub" id="fleetSub">FleetWatcher AI mesh</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Online &amp; Communicating</div>
+          <div class="stat-value" id="fleetOnline" style="color:var(--online)">—</div>
+          <div class="stat-sub">Sharing events in real time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Camera</div>
+          <div class="status-active"><span class="pulse"></span> ACTIVE</div>
+          <div class="stat-sub" id="fleetThisCam">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Mesh Link</div>
+          <div class="stat-value" id="fleetMesh" style="font-size:20px;color:var(--accent)">Cloud Relay</div>
+          <div class="stat-sub" id="fleetMeshSub">via FleetWatch backend</div>
+        </div>
+      </div>
+      <div class="list-header" style="margin-top:14px;">Synced Cameras — click any camera to inspect</div>
+      <div class="fleet-grid" id="fleetGrid">
+        <div class="empty-state"><div class="icon">⛁</div><div class="msg">Connect the cloud backend to see synced cameras.</div></div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: AI INTEL ════════ -->
+    <div class="section" id="section-ai-intel">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div class="stat-card">
+          <div class="stat-label">Current Scene Summary</div>
+          <div id="aiSceneSummary" style="font-size:13px; line-height:1.7; color:var(--text); margin-top:8px;">
+            Analyzing scene…
+          </div>
+          <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;" id="aiObjectTags"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Abnormality Score</div>
+          <div id="aiAbnScore" style="font-size:48px; font-weight:800; color:#fff; line-height:1;">—</div>
+          <div id="aiAbnLabel" style="font-size:12px; color:var(--text-dim); margin-top:4px;">—</div>
+          <div class="health-bar" style="margin-top:12px;height:6px;">
+            <div class="health-bar-fill" id="aiAbnBar" style="width:0%; background:var(--observe);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reasoning Council seat activity — visible when cloud is connected -->
+      <div class="stat-card" id="councilActivityCard" style="display:none;">
+        <div class="stat-label" style="margin-bottom:10px;">Reasoning Council — Seat Activity</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;" id="councilSeatGrid">
+          <!-- Populated by updateAIIntel when cloud events present -->
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Recent AI Descriptions</div>
+        <div id="aiDescList" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: GROUP BEHAVIOR ════════ -->
+    <div class="section" id="section-group-behavior">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+        <div class="stat-card">
+          <div class="stat-label">People in Zone</div>
+          <div class="stat-value" id="gbPeopleCount">—</div>
+          <div class="stat-sub">Current occupancy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Group Events (24h)</div>
+          <div class="stat-value" id="gbGroupEvents">—</div>
+          <div class="stat-sub">Gatherings detected</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Dwell Time Avg</div>
+          <div class="stat-value" id="gbDwellTime">—</div>
+          <div class="stat-sub">Seconds per person</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Behavior Patterns</div>
+        <div id="gbPatterns" style="margin-top:8px; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: CAMERA HEALTH ════════ -->
+    <div class="section" id="section-camera-health">
+      <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:4px;">
+        <div class="stat-card" style="flex:1; min-width:140px;">
+          <div class="stat-label">Online</div>
+          <div class="stat-value" id="healthOnline" style="color:var(--online)">—</div>
+        </div>
+        <div class="stat-card" style="flex:1; min-width:140px;">
+          <div class="stat-label">Warning</div>
+          <div class="stat-value" id="healthWarning" style="color:var(--warning)">0</div>
+        </div>
+        <div class="stat-card" style="flex:1; min-width:140px;">
+          <div class="stat-label">Offline</div>
+          <div class="stat-value" id="healthOffline" style="color:var(--offline)">—</div>
+        </div>
+        <div class="stat-card" style="flex:1; min-width:140px;">
+          <div class="stat-label">Total Cameras</div>
+          <div class="stat-value" id="healthTotal">—</div>
+        </div>
+      </div>
+      <div class="health-grid" id="healthGrid">
+        <div class="empty-state"><div class="icon">◉</div><div class="msg">Loading camera health…</div></div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: ONVIF / STREAM ════════ -->
+    <div class="section" id="section-onvif">
+      <div class="info-grid">
+        <div class="info-block">
+          <div class="info-block-title">Stream URLs</div>
+          <div class="info-row">
+            <span class="info-key">RTSP H.264</span>
+            <span class="info-val accent" id="rtspUrl">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">MJPEG</span>
+            <span class="info-val accent" id="mjpegUrl">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Snapshot</span>
+            <span class="info-val accent" id="snapUrl">—</span>
+          </div>
+        </div>
+        <div class="info-block">
+          <div class="info-block-title">ONVIF Status</div>
+          <div class="info-row">
+            <span class="info-key">ONVIF</span>
+            <span class="info-val" style="color:var(--online)">Enabled</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Profile S</span>
+            <span class="info-val" style="color:var(--online)">Active</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Profile G</span>
+            <span class="info-val" style="color:var(--online)">Active</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Metadata</span>
+            <span class="info-val" style="color:var(--online)">Streaming</span>
+          </div>
+        </div>
+        <div class="info-block">
+          <div class="info-block-title">Analytics Status</div>
+          <div class="info-row">
+            <span class="info-key">AOA</span>
+            <span class="info-val" id="aoaStatus">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Scene Metadata</span>
+            <span class="info-val" style="color:var(--online)">Active (OS 11.9+)</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">Message Broker</span>
+            <span class="info-val" style="color:var(--online)">Connected</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">HTTPS Push</span>
+            <span class="info-val" id="httpsPushStatus" style="color:var(--warning)">Not configured</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ SECTION: ADMIN ════════ -->
+    <div class="section" id="section-admin">
+      <div class="info-grid">
+        <div class="info-block">
+          <div class="info-block-title">Device Information</div>
+          <div class="info-row"><span class="info-key">Manufacturer</span><span class="info-val" id="adminBrand">—</span></div>
+          <div class="info-row"><span class="info-key">Model</span><span class="info-val" id="adminModel">—</span></div>
+          <div class="info-row"><span class="info-key">Variant</span><span class="info-val" id="adminVariant">—</span></div>
+          <div class="info-row"><span class="info-key">Serial Number</span><span class="info-val" id="adminSerial">—</span></div>
+          <div class="info-row"><span class="info-key">Firmware</span><span class="info-val" id="adminFirmware">—</span></div>
+          <div class="info-row"><span class="info-key">Architecture</span><span class="info-val" id="adminArch">—</span></div>
+          <div class="info-row"><span class="info-key">SoC</span><span class="info-val" id="adminSoC">—</span></div>
+        </div>
+        <div class="info-block">
+          <div class="info-block-title">FleetWatcher Config</div>
+          <div class="info-row"><span class="info-key">App Version</span><span class="info-val">1.0.0</span></div>
+          <div class="info-row"><span class="info-key">Pipeline</span><span class="info-val" style="color:var(--online)">Running</span></div>
+          <div class="info-row"><span class="info-key">Cloud Push</span><span class="info-val" id="cfgCloudPush">Not configured</span></div>
+          <div class="info-row"><span class="info-key">Poll Interval</span><span class="info-val">10s</span></div>
+          <div class="info-row"><span class="info-key">AOA Scenarios</span><span class="info-val" id="cfgAOAScenarios">—</span></div>
+          <div class="info-row"><span class="info-key">SD Card</span><span class="info-val" id="cfgSDCard">—</span></div>
+        </div>
+        <div class="info-block">
+          <div class="info-block-title">Alert Channels</div>
+          <p style="font-size:11px;color:var(--text-dim);margin:2px 0 4px;">Where HIGH alerts are dispatched. Configure in backend env vars.</p>
+          <div class="ch-grid" id="channelStatusBox">
+            <span class="ch-chip"><span class="ch-led"></span>Connect cloud…</span>
+          </div>
+        </div>
+        <div class="info-block">
+          <div class="info-block-title">Actions</div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+            <button class="btn-view" onclick="refreshAll()" style="width:100%;">↺ Refresh All Data</button>
+            <button class="btn-resolve" onclick="clearLocalEvents()" style="width:100%;">Clear Local Event Queue</button>
+            <button class="btn-resolve" onclick="toast('Exporting all events…')" style="width:100%;">Export All Events</button>
+            <button class="btn-resolve" onclick="toast('Opening VAPIX UI…'); window.open('/','_blank')" style="width:100%;">Open Camera Web UI</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ── SENSOR MODAL ── -->
+<div class="modal-overlay" id="sensorModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Sensors Status</span>
+      <span class="modal-close" onclick="closeSensorModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">
+        Please <span style="color:var(--accent);">Contact Support</span> if any sensors require attention.
+      </p>
+      <div class="modal-counts">
+        <div class="modal-count online"><span class="n" id="modalOnline">—</span><span class="l">Online</span></div>
+        <div class="modal-count warning"><span class="n" id="modalWarning">0</span><span class="l">Warnings</span></div>
+        <div class="modal-count offline"><span class="n" id="modalOffline">—</span><span class="l">Offline</span></div>
+      </div>
+      <div class="modal-sensor-list" id="modalSensorList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-close" onclick="closeSensorModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   FleetWatcher AI — Custom UI Logic
+   Connects to VAPIX APIs on the same Axis camera host.
+   Falls back to demo data when APIs are unavailable.
+══════════════════════════════════════════════════════════════ */
+
+// ── Config ──────────────────────────────────────────────────
+const POLL_INTERVAL_MS    = 10000;
+const CLOUD_POLL_MS       = 15000;
+const SNAPSHOT_URL        = '/axis-cgi/jpg/image.cgi?resolution=640x360';
+const BASICINFO_URL       = '/axis-cgi/basicdeviceinfo.cgi';
+const AOA_URL             = '/local/objectanalytics/control.cgi';
+const HEALTH_STORAGE_KEY  = 'fw_events';
+
+// Cloud backend — set FW_CLOUD_URL / FW_CLOUD_TOKEN in FixedIT env vars;
+// they are injected as meta tags by the helper script, or default to empty.
+const FW_CLOUD_URL   = (document.querySelector('meta[name="fw-cloud-url"]')   || {}).content || localStorage.getItem('fw_cloud_url')   || '';
+const FW_CLOUD_TOKEN = (document.querySelector('meta[name="fw-cloud-token"]') || {}).content || localStorage.getItem('fw_cloud_token') || '';
+
+// ── State ────────────────────────────────────────────────────
+let events        = [];
+let cameras       = [];
+let deviceInfo    = {};
+let aoaScenarios  = [];
+let currentDetail = null;
+let cloudStats    = {};
+let cloudCameras  = [];   // per-camera breakdown from /api/stats
+let fleetCameras  = [];   // full registry from /api/cameras
+let currentReplay = null; // currently selected replay clip
+let replayFilter  = 0;    // 0=high only, 1=all
+let channelStatus = {};   // notification channel availability
+const REPLAY_FILTERS = ['High Alerts Only', 'All Reviewed Clips'];
+let filterPriority = 0;  // 0=all, 1=escalate, 2=challenge, 3=observe
+let filterType     = 0;  // 0=all, 1=security, 2=safety, 3=ops
+const PRIORITY_LABELS = ['All Priorities','ESCALATE','CHALLENGE','OBSERVE'];
+const TYPE_LABELS     = ['All Types','Security','Safety','Operations'];
+
+// ── Navigation ───────────────────────────────────────────────
+document.querySelectorAll('.nav-item[data-section]').forEach(el => {
+  el.addEventListener('click', () => showSection(el.dataset.section));
+});
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item[data-section]').forEach(el => {
+    el.classList.toggle('active', el.dataset.section === id);
+  });
+  const sec = document.getElementById('section-' + id);
+  if (sec) sec.classList.add('active');
+  const titles = {
+    dashboard:       ['Alerts Dashboard',  'View and take action on important location alerts.'],
+    detail:          ['Event Details',     ''],
+    activity:        ['All Activity',      'Historical record of all events for audit logs.'],
+    liveview:        ['Live View',         'Real-time camera streams.'],
+    replay:          ['Video Replay',      'Reviewed high-alert clips with AI bounding boxes and threat narration.'],
+    fleet:           ['Camera Fleet',      'All cameras synced to FleetWatcher AI — status, health, and mesh communication.'],
+    'ai-intel':      ['AI Intel',          'Scene intelligence and abnormality analysis.'],
+    'group-behavior':['Group Behavior',    'Multi-person interaction patterns.'],
+    'camera-health': ['Camera Health',     'Sensor status and connectivity.'],
+    onvif:           ['ONVIF / Stream',    'Stream URLs, profiles, and analytics status.'],
+    admin:           ['Admin',             'Device information and system configuration.'],
+  };
+  if (titles[id]) {
+    document.getElementById('pageTitle').textContent = titles[id][0];
+    document.getElementById('pageDesc').textContent  = titles[id][1];
+  }
+  // Lazy-load section data on demand
+  if (id === 'fleet')  loadFleet();
+  if (id === 'replay') renderReplayGallery();
+}
+
+// ── VAPIX Fetch helpers ──────────────────────────────────────
+async function vapixGet(url) {
+  try {
+    const r = await fetch(url, { credentials: 'include' });
+    if (!r.ok) throw new Error(r.status);
+    return await r.text();
+  } catch(e) { return null; }
+}
+
+async function vapixPost(url, body) {
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+// ── Cloud Backend API ────────────────────────────────────────
+async function cloudGet(path) {
+  if (!FW_CLOUD_URL) return null;
+  try {
+    const r = await fetch(FW_CLOUD_URL + path, {
+      headers: { 'Authorization': `Bearer ${FW_CLOUD_TOKEN}` }
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+async function cloudPost(path, body) {
+  if (!FW_CLOUD_URL) return null;
+  try {
+    const r = await fetch(FW_CLOUD_URL + path, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${FW_CLOUD_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+async function loadCloudEvents() {
+  const [evData, stats] = await Promise.all([
+    cloudGet(`/api/events?limit=50&token=${FW_CLOUD_TOKEN}`),
+    cloudGet(`/api/stats?token=${FW_CLOUD_TOKEN}`)
+  ]);
+
+  if (stats) {
+    cloudStats = stats;
+    updateCloudStats(stats);
+  }
+
+  if (!evData || !Array.isArray(evData) || evData.length === 0) return;
+
+  // Merge cloud events — cloud events have an `id` field; avoid duplicates
+  const existingIds = new Set(events.map(e => e.id));
+  const newEvs = evData
+    .filter(ce => !existingIds.has('cloud-' + ce.id))
+    .map(ce => cloudEventToLocal(ce));
+
+  if (newEvs.length > 0) {
+    events = [...newEvs, ...events].sort((a, b) => b.ts - a.ts);
+    saveEvents();
+    renderAlerts();
+    renderActivityTable();
+    updateBadges();
+    updateAIIntel();
+  }
+
+  // Update cloud indicator
+  const ind = document.getElementById('cloudIndicator');
+  if (ind) { ind.style.color = 'var(--online)'; ind.textContent = 'Cloud Connected'; }
+}
+
+function cloudEventToLocal(ce) {
+  // Backend v3 returns flat columns + raw_json (verdict/ctx/candidates).
+  let raw = {};
+  try { raw = typeof ce.raw_json === 'string' ? JSON.parse(ce.raw_json) : (ce.raw_json || {}); } catch(e) {}
+  const verdict    = raw.verdict || {};
+  const candidates = raw.candidates || [];
+  const ts = ce.received_at ? new Date(ce.received_at).getTime() : Date.now();
+  const opLevel = (ce.operator_level || 'OBSERVE').toUpperCase();
+  const levelMap = { ESCALATE: 'ESCALATE', CHALLENGE: 'CHALLENGE', OBSERVE: 'OBSERVE' };
+  const level = levelMap[opLevel] || 'OBSERVE';
+  const prioMap = { ESCALATE: 'Critical Priority', CHALLENGE: 'Moderate Priority', OBSERVE: 'Low Priority' };
+  const boxes = Array.isArray(ce.bounding_boxes) ? ce.bounding_boxes
+              : (typeof ce.bounding_boxes === 'string' ? safeParse(ce.bounding_boxes, []) : []);
+  const seats = Array.isArray(ce.seats_used) ? ce.seats_used
+              : (typeof ce.seats_used === 'string' ? safeParse(ce.seats_used, []) : []);
+  return {
+    id: 'cloud-' + ce.id,
+    cloudId: ce.id,
+    level,
+    priority: prioMap[level],
+    title: ce.narrative || `${ce.detected_class || 'Object'} detected in ${ce.zone || 'zone'}`,
+    description: ce.visual_description || ce.narrative || '',
+    time: new Date(ts).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}),
+    date: new Date(ts).toLocaleDateString('en-US'),
+    ts,
+    location: ce.site || 'FleetWatch Site',
+    zone: ce.zone || '—',
+    sensors: ce.camera_id || '—',
+    cameraId: ce.camera_id || '',
+    types: ['Security'],
+    status: ce.resolved ? 'Resolved' : 'Open',
+    clips: ce.snapshot_id ? 1 : 0,
+    snapshotId: ce.snapshot_id || null,
+    detectedClass: ce.detected_class || '',
+    boundingBoxes: boxes,
+    candidates,
+    severity: ce.severity || verdict.severity || 'LOW',
+    verdict,
+    threatScore: ce.threat_score !== undefined ? ce.threat_score : verdict.threat_score,
+    recommendedAction: ce.recommended_action || verdict.recommended_action || '—',
+    seatsUsed: seats,
+    narrative: ce.narrative || verdict.narrative || '',
+    feedback: ce.feedback || '',
+    cloudSource: true
+  };
+}
+
+function safeParse(s, fallback) { try { return JSON.parse(s); } catch(e) { return fallback; } }
+
+function updateCloudStats(stats) {
+  const total = stats.open_total !== undefined ? stats.open_total : stats.total;
+  if (total !== undefined) setText('cloudTotal', total.toString());
+  if (stats.high  !== undefined) setText('cloudHigh',  stats.high.toString());
+  if (stats.low   !== undefined) setText('cloudLow',   stats.low.toString());
+  if (stats.channels) renderChannelStatus(stats.channels);
+  if (stats.by_camera) { cloudCameras = stats.by_camera; }
+}
+
+async function resolveCloudEvent(cloudId) {
+  return await cloudPost(`/api/events/${cloudId}/resolve`, {});
+}
+
+async function sendCloudFeedback(cloudId, label) {
+  return await cloudPost(`/api/events/${cloudId}/feedback`, { label });
+}
+
+// ── Device Info ──────────────────────────────────────────────
+async function loadDeviceInfo() {
+  const data = await vapixPost(BASICINFO_URL, {
+    apiVersion: '1.0',
+    method: 'getAllProperties'
+  });
+
+  if (data && data.data && data.data.propertyList) {
+    const p = data.data.propertyList;
+    deviceInfo = {
+      brand:    p.Brand    || 'Axis',
+      model:    p.Model    || '—',
+      variant:  p.HardwareID || '—',
+      serial:   p.SerialNumber || '—',
+      firmware: p.Version  || '—',
+      arch:     p.Architecture || '—',
+      soc:      p.Soc      || '—',
+      fullname: p.ProdFullName || p.Model || '—'
+    };
+  } else {
+    // Demo fallback
+    deviceInfo = {
+      brand:'Axis', model:'Q3546 Le Dome', variant:'01HF',
+      serial:'ACCC8EF1E944', firmware:'12.4.0',
+      arch:'aarch64', soc:'ARTPEC-8', fullname:'Axis Q3546-LE Mk II'
+    };
+  }
+
+  // Populate UI
+  setText('devModel',    deviceInfo.model);
+  setText('devSerial',   deviceInfo.serial);
+  setText('devFirmware', deviceInfo.firmware);
+  setText('devArch',     deviceInfo.arch);
+  setText('adminBrand',  deviceInfo.brand);
+  setText('adminModel',  deviceInfo.model);
+  setText('adminVariant',deviceInfo.variant);
+  setText('adminSerial', deviceInfo.serial);
+  setText('adminFirmware',deviceInfo.firmware);
+  setText('adminArch',   deviceInfo.arch);
+  setText('adminSoC',    deviceInfo.soc);
+  setText('sidebarUserName', deviceInfo.fullname);
+  setText('sidebarUserEmail', window.location.hostname);
+  setText('locationName', 'Axis Experience Center');
+
+  // Stream URLs
+  const h = window.location.hostname;
+  setText('rtspUrl',  `rtsp://${h}/axis-media/media.amp`);
+  setText('mjpegUrl', `http://${h}/axis-cgi/mjpg/video.cgi`);
+  setText('snapUrl',  `http://${h}/axis-cgi/jpg/image.cgi`);
+}
+
+// ── AOA Scenarios ────────────────────────────────────────────
+async function loadAOAScenarios() {
+  const data = await vapixPost(AOA_URL, {
+    apiVersion: '1.2', context: 'fw', method: 'getConfiguration'
+  });
+
+  if (data && data.data && data.data.scenarios) {
+    aoaScenarios = data.data.scenarios;
+    setText('aoaStatus', `${aoaScenarios.length} scenario(s) active`);
+    document.getElementById('aoaStatus').style.color = 'var(--online)';
+    setText('cfgAOAScenarios', aoaScenarios.length.toString());
+  } else {
+    setText('aoaStatus', 'Not configured');
+    setText('cfgAOAScenarios', 'Not configured');
+    // Seed demo events on first load
+    if (events.length === 0) seedDemoEvents();
+  }
+}
+
+// ── Camera Snapshot ──────────────────────────────────────────
+function getSnapshotUrl(channel) {
+  return `/axis-cgi/jpg/image.cgi?camera=${channel||1}&resolution=640x360&t=${Date.now()}`;
+}
+
+// ── Camera Health (AOA + device info) ───────────────────────
+async function loadCameraHealth() {
+  // In a real deployment, loop through known camera IDs.
+  // Here we represent this camera + known siblings from env.
+  cameras = [
+    { id:1, name: deviceInfo.model || 'Camera 1', zone:'Zone 1', type:'Dome',    status:'online',  lastSeen: new Date() },
+    { id:2, name: 'F2107 Re',        zone:'Zone 2', type:'Fixed',   status:'online',  lastSeen: new Date(Date.now()-180000) },
+    { id:3, name: 'F4108',           zone:'Zone 2', type:'Fixed',   status:'offline', offlineSince: new Date(Date.now()-5760000000) },
+    { id:4, name: 'F4108 Dome',      zone:'Zone 2', type:'Dome',    status:'offline', offlineSince: new Date(Date.now()-5875200000) },
+    { id:5, name: 'Q1972 LE Thermal',zone:'Zone 1', type:'Thermal', status:'offline', offlineSince: new Date(Date.now()-4320000000) },
+  ];
+
+  const online  = cameras.filter(c => c.status === 'online').length;
+  const offline = cameras.filter(c => c.status === 'offline').length;
+  const warning = cameras.filter(c => c.status === 'warning').length;
+
+  setText('sensorsOnline',  online.toString());
+  setText('sensorsOffline', offline.toString());
+  setText('sensorsWarning', warning.toString());
+  setText('healthOnline',  online.toString());
+  setText('healthOffline', offline.toString());
+  setText('healthWarning', warning.toString());
+  setText('healthTotal',   cameras.length.toString());
+  setText('modalOnline',  online.toString());
+  setText('modalOffline', offline.toString());
+  setText('modalWarning', warning.toString());
+
+  renderHealthGrid();
+  renderSensorModal();
+  renderCamGrid();
+  renderLiveGrid();
+}
+
+function renderHealthGrid() {
+  const grid = document.getElementById('healthGrid');
+  if (!cameras.length) { grid.innerHTML = '<div class="empty-state"><div class="icon">◉</div><div class="msg">No cameras configured</div></div>'; return; }
+  grid.innerHTML = cameras.map(cam => {
+    const st = cam.status;
+    let statusRow = '';
+    if (st === 'offline' && cam.offlineSince) {
+      statusRow = `<div class="health-meta-row"><span class="health-meta-key">Offline duration</span><span class="health-meta-val offline-duration">${humanDuration(Date.now() - cam.offlineSince.getTime())}</span></div>`;
+    } else if (cam.lastSeen) {
+      statusRow = `<div class="health-meta-row"><span class="health-meta-key">Last seen</span><span class="health-meta-val last-seen">${timeAgo(cam.lastSeen)}</span></div>`;
+    }
+    return `
+      <div class="health-card">
+        <div class="health-card-header">
+          <span class="health-cam-name">${cam.name}</span>
+          <span class="status-pill ${st}">${cap(st)}</span>
+        </div>
+        <div class="health-meta">
+          <div class="health-meta-row"><span class="health-meta-key">Type</span><span class="health-meta-val">${cam.type}</span></div>
+          <div class="health-meta-row"><span class="health-meta-key">Zone</span><span class="health-meta-val">${cam.zone}</span></div>
+          ${statusRow}
+        </div>
+        <div class="health-bar"><div class="health-bar-fill" style="width:${st==='online'?'90%':st==='warning'?'50%':'0%'}; background:${st==='online'?'var(--online)':st==='warning'?'var(--warning)':'var(--offline)'}"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderSensorModal() {
+  document.getElementById('modalSensorList').innerHTML = cameras.map(cam => {
+    const offlineText = cam.status === 'offline' && cam.offlineSince
+      ? `<div class="offline-text">Offline for ${humanDuration(Date.now() - cam.offlineSince.getTime())}</div>`
+      : cam.lastSeen
+      ? `<div class="online-text">Last responded ${timeAgo(cam.lastSeen)}</div>` : '';
+    return `
+      <div class="modal-sensor">
+        <div class="modal-sensor-header">
+          <span class="modal-sensor-name">${cam.name}</span>
+          <span class="status-pill ${cam.status}">${cap(cam.status)}</span>
+        </div>
+        <div class="modal-sensor-meta">
+          Type: Camera<br>Zone: ${cam.zone}
+        </div>
+        ${offlineText}
+      </div>`;
+  }).join('');
+}
+
+function renderCamGrid() {
+  document.getElementById('camGrid').innerHTML = cameras.slice(0,4).map(cam => `
+    <div class="cam-thumb">
+      ${cam.status==='online' ? `<img src="${getSnapshotUrl(cam.id)}" alt="${cam.name}" onerror="this.style.display='none'">` : ''}
+      <div style="width:100%;height:100%;background:linear-gradient(135deg,#0d1a2e,#0f2040);display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0.4;position:absolute;inset:0;">📷</div>
+      <div class="cam-label">${cam.name.substring(0,12)}</div>
+      <div class="cam-status-dot ${cam.status}"></div>
+    </div>
+  `).join('');
+}
+
+function renderLiveGrid() {
+  document.getElementById('liveGrid').innerHTML = cameras.map(cam => `
+    <div class="live-cam">
+      ${cam.status==='online' ? `<img src="${getSnapshotUrl(cam.id)}" alt="${cam.name}" onerror="this.style.display='none'">` : ''}
+      <div class="live-cam-overlay">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <span class="live-cam-name">${cam.name}</span>
+          ${cam.status==='online' ? '<div class="live-rec"><div class="rec-dot"></div><span style="font-size:10px;color:#fff;font-weight:600;">LIVE</span></div>' : '<span style="font-size:10px;color:var(--offline);font-weight:600;">OFFLINE</span>'}
+        </div>
+        <div class="live-cam-footer">
+          <span class="live-cam-time" id="liveTime-${cam.id}">${fmtTime(new Date())}</span>
+          <span class="live-cam-status">${cam.zone}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Event Queue ──────────────────────────────────────────────
+function loadEvents() {
+  try {
+    const saved = localStorage.getItem(HEALTH_STORAGE_KEY);
+    if (saved) events = JSON.parse(saved);
+  } catch(e) { events = []; }
+  if (events.length === 0) seedDemoEvents();
+}
+
+function saveEvents() {
+  try { localStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(events.slice(0, 200))); } catch(e) {}
+}
+
+function seedDemoEvents() {
+  events = [
+    {
+      id:'evt-001', level:'ESCALATE', priority:'Critical Priority',
+      title:'Unauthorized Person with Rifle in Lobby and Room',
+      description:'A person carrying what appeared to be a rifle entered the lobby and then proceeded into a room. The individual briefly surveyed the surroundings before exiting the area.',
+      time:'10:40 AM CDT', date:'4/8/2026', ts: new Date('2026-04-08T10:40:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 1',
+      sensors:'Q3546 Le Dome, Q1972 LE Thermal',
+      types:['Security'], status:'Open', clips:2,
+      localReplay:true, detectedClass:'weapon', threatScore:92, recommendedAction:'escalate',
+      narrative:'ESCALATE: An armed individual carrying a rifle is moving through the lobby toward an interior room; treat as an active threat and dispatch immediately.',
+      seatsUsed:['eyes','analyst','agent','narrator'],
+      boundingBoxes:[
+        {label:'person', confidence:0.94, x:320, y:200, w:140, h:300},
+        {label:'rifle',  confidence:0.88, x:400, y:230, w:180, h:60},
+      ],
+      candidates:[
+        {model:'gemini-2.0-flash', selected:true, text:'A person in dark clothing is carrying a long rifle at waist height while walking briskly through the lobby toward an interior doorway.'},
+        {model:'llama-4-maverick', text:'Subject observed holding an elongated firearm consistent with a rifle, barrel oriented forward, advancing across the lobby floor.'},
+        {model:'gpt-4.1-mini',     text:'Armed male, rifle in both hands, moving from lobby entrance toward rear room — possible active shooter, advise immediate response.'},
+      ]
+    },
+    {
+      id:'evt-002', level:'CHALLENGE', priority:'Moderate Priority',
+      title:'Camera Tampering with Yellow Object',
+      description:'An individual approached the camera and used a yellow object to obscure the lens. The tampering lasted approximately 12 seconds before the person moved away.',
+      time:'6:37 PM CDT', date:'3/24/2026', ts: new Date('2026-03-24T18:37:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 1',
+      sensors:'Q3546 Le Dome',
+      types:['Security'], status:'Open', clips:1
+    },
+    {
+      id:'evt-003', level:'CHALLENGE', priority:'Moderate Priority',
+      title:'Unusual Floor Maneuvers in Lobby',
+      description:'An individual was observed moving in an erratic pattern across the lobby floor, crouching and changing direction multiple times without apparent purpose.',
+      time:'4:44 PM CDT', date:'3/24/2026', ts: new Date('2026-03-24T16:44:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 1',
+      sensors:'Q3546 Le Dome',
+      types:['Safety','Security'], status:'Open', clips:2
+    },
+    {
+      id:'evt-004', level:'CHALLENGE', priority:'Moderate Priority',
+      title:'Suspicious Person Attempts Unauthorized Access at Secure Door',
+      description:'A person approached a secure door and interacted with the locking mechanism for an extended period without successful entry. The individual departed after approximately 45 seconds.',
+      time:'9:47 PM CDT', date:'5/29/2026', ts: new Date('2026-05-29T21:47:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 1',
+      sensors:'Q3546 Le Dome',
+      types:['Security'], status:'Resolved', clips:1
+    },
+    {
+      id:'evt-005', level:'OBSERVE', priority:'Moderate Priority',
+      title:'Person Loitering Near Parked Bicycle by Secured Entrance',
+      description:'A person was observed approaching a bicycle parked near a secured entrance and remained in proximity for over 3 minutes before departing on foot.',
+      time:'7:43 PM CDT', date:'4/9/2026', ts: new Date('2026-04-09T19:43:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 2',
+      sensors:'F2107 Re',
+      types:['Security'], status:'Resolved', clips:1
+    },
+    {
+      id:'evt-006', level:'OBSERVE', priority:'Moderate Priority',
+      title:'Player Argues at Blackjack Table',
+      description:'During a blackjack game, a male player stood up abruptly and raised his voice in an apparent dispute. Staff approached and the situation de-escalated within 2 minutes.',
+      time:'5:23 PM CDT', date:'4/9/2026', ts: new Date('2026-04-09T17:23:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 1',
+      sensors:'Q3546 Le Dome',
+      types:['Security','Operations'], status:'Resolved', clips:1
+    },
+    {
+      id:'evt-007', level:'ESCALATE', priority:'Moderate Priority',
+      title:'Unresponsive Person on Floor in Lobby',
+      description:'Throughout a 15-minute period, an individual was observed lying motionless on the lobby floor. Medical staff were notified and the person was assisted.',
+      time:'2:38 PM CDT', date:'4/9/2026', ts: new Date('2026-04-09T14:38:00').getTime(),
+      location:'Axis Experience Center', zone:'Zone 1',
+      sensors:'Q3546 Le Dome, Q1972 LE Thermal',
+      types:['Safety','Security'], status:'Resolved', clips:2
+    },
+    {
+      id:'evt-008', level:'ESCALATE', priority:'Critical Priority',
+      title:'Unauthorized Hardware Installed in Server Room',
+      description:'An individual without scheduled access entered the server room, opened a rack, and connected an external hard drive to a running server before leaving. No work order matched this activity.',
+      time:'2:14 AM CDT', date:'6/22/2026', ts: new Date('2026-06-22T02:14:00').getTime(),
+      location:'Home Test Lab', zone:'Server Room',
+      sensors:'P3268-LVE',
+      types:['Security','Operations'], status:'Open', clips:1,
+      localReplay:true, detectedClass:'unauthorized-device', threatScore:84, recommendedAction:'escalate',
+      narrative:'ESCALATE: After-hours entry to the server room with an unauthorized external drive connected to a live server — possible data exfiltration or implant; lock the rack and verify chain of custody.',
+      seatsUsed:['eyes','analyst','agent','narrator'],
+      boundingBoxes:[
+        {label:'person',     confidence:0.91, x:250, y:190, w:130, h:280},
+        {label:'hard-drive', confidence:0.79, x:430, y:250, w:90,  h:60},
+        {label:'open-rack',  confidence:0.83, x:470, y:180, w:150, h:320},
+      ],
+      candidates:[
+        {model:'gemini-2.0-flash', selected:true, text:'A person is kneeling at an open server rack and plugging a small external hard drive into a rack-mounted server during the early morning hours.'},
+        {model:'llama-4-maverick', text:'Subject connected a portable storage device to an active server within an opened equipment rack; action is inconsistent with logged maintenance.'},
+        {model:'gpt-4.1-mini',     text:'Unauthorized after-hours access: individual installed an external drive on a live server — flag as potential data theft or hardware implant.'},
+      ]
+    }
+  ];
+  saveEvents();
+}
+
+function addEvent(ev) {
+  events.unshift(ev);
+  saveEvents();
+  renderAlerts();
+  updateBadges();
+}
+
+function resolveCurrentEvent() {
+  if (!currentDetail) return;
+  const ev = events.find(e => e.id === currentDetail.id);
+  if (ev) {
+    ev.status = 'Resolved';
+    saveEvents();
+    if (ev.cloudSource && ev.cloudId) resolveCloudEvent(ev.cloudId);
+  }
+  renderAlerts();
+  updateBadges();
+  renderActivityTable();
+  document.getElementById('metaStatus').innerHTML = '<span style="color:var(--online);font-weight:600;">Resolved</span>';
+  toast('Event resolved');
+}
+
+async function submitFeedback(label) {
+  if (!currentDetail || !currentDetail.cloudSource) return;
+  const result = await sendCloudFeedback(currentDetail.cloudId, label);
+  toast(result ? `Feedback sent: ${label.replace('_',' ')}` : 'Feedback queued (offline)');
+}
+
+function clearLocalEvents() {
+  if (!confirm('Clear all local events? This cannot be undone.')) return;
+  events = [];
+  saveEvents();
+  renderAlerts();
+  updateBadges();
+  renderActivityTable();
+  toast('Event queue cleared');
+}
+
+// ── Render Alerts ────────────────────────────────────────────
+function cycleFilter(type) {
+  if (type === 'priority') {
+    filterPriority = (filterPriority + 1) % 4;
+    setText('filterPriorityLabel', PRIORITY_LABELS[filterPriority]);
+  } else {
+    filterType = (filterType + 1) % 4;
+    setText('filterTypeLabel', TYPE_LABELS[filterType]);
+  }
+  renderAlerts();
+}
+
+function filteredEvents() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  return events.filter(e => {
+    if (q && !e.title.toLowerCase().includes(q) && !e.description.toLowerCase().includes(q)) return false;
+    if (filterPriority === 1 && e.level !== 'ESCALATE') return false;
+    if (filterPriority === 2 && e.level !== 'CHALLENGE') return false;
+    if (filterPriority === 3 && e.level !== 'OBSERVE') return false;
+    if (filterType === 1 && !e.types.includes('Security')) return false;
+    if (filterType === 2 && !e.types.includes('Safety')) return false;
+    if (filterType === 3 && !e.types.includes('Operations')) return false;
+    return true;
+  });
+}
+
+function renderAlerts() {
+  const list   = document.getElementById('alertList');
+  const evList = filteredEvents();
+  setText('alertCount', evList.length.toString());
+
+  if (!evList.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🔔</div><div class="msg">No alerts matching filters</div><div class="sub">Adjust filters or wait for new events</div></div>';
+    return;
+  }
+
+  list.innerHTML = evList.map(ev => {
+    const levelClass = ev.level.toLowerCase();
+    const typeTags = ev.types.map(t => `<span class="tag ${t.toLowerCase()}">${t}</span>`).join('');
+    return `
+      <div class="alert-card ${levelClass}" onclick="openDetail('${ev.id}')">
+        <div class="card-thumb">
+          <div class="thumb-placeholder">📷</div>
+          ${ev.clips ? `<div class="video-badge">Video (${ev.clips})</div>` : ''}
+        </div>
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span class="priority-badge ${levelClass}">${priorityArrow(ev.level)} ${ev.priority}</span>
+          </div>
+          <div class="card-title">${ev.title}</div>
+          <div class="card-meta">
+            <span class="card-meta-item">📅 ${ev.date}</span>
+            <span class="card-meta-item">🕐 ${ev.time}</span>
+            <span class="card-meta-item">📍 ${ev.location}</span>
+            <span class="card-meta-item">⬡ ${ev.zone}</span>
+          </div>
+          <div class="card-tags">${typeTags}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-view" onclick="event.stopPropagation();openDetail('${ev.id}')">View Details</button>
+          ${ev.status==='Open'?`<button class="btn-resolve" onclick="event.stopPropagation();quickResolve('${ev.id}')">Resolve</button>`:'<span style="font-size:11px;color:var(--online);font-weight:600;text-align:center;">✓ Resolved</span>'}
+        </div>
+      </div>`;
+  }).join('');
+
+  updateLevelBars(evList);
+  updateBadges();
+}
+
+function quickResolve(id) {
+  const ev = events.find(e => e.id === id);
+  if (ev) { ev.status = 'Resolved'; saveEvents(); renderAlerts(); toast('Resolved'); }
+}
+
+function updateLevelBars(evList) {
+  const esc  = evList.filter(e => e.level==='ESCALATE').length;
+  const chal = evList.filter(e => e.level==='CHALLENGE').length;
+  const obs  = evList.filter(e => e.level==='OBSERVE').length;
+  const tot  = Math.max(evList.length, 1);
+  setText('numEsc', esc.toString()); document.getElementById('barEsc').style.width  = (esc/tot*100)+'%';
+  setText('numChal',chal.toString()); document.getElementById('barChal').style.width = (chal/tot*100)+'%';
+  setText('numObs', obs.toString()); document.getElementById('barObs').style.width  = (obs/tot*100)+'%';
+}
+
+function updateBadges() {
+  const open = events.filter(e => e.status === 'Open').length;
+  const badge = document.getElementById('badge-alerts');
+  badge.textContent = open.toString();
+  badge.style.display = open > 0 ? 'inline-block' : 'none';
+  setText('alerts24h', events.filter(e => Date.now() - e.ts < 86400000).length.toString());
+}
+
+// ── Event Detail ─────────────────────────────────────────────
+function openDetail(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  currentDetail = ev;
+
+  const levelClass = ev.level.toLowerCase();
+  setText('detailTitle', ev.title);
+  const pb = document.getElementById('detailPriorityBadge');
+  pb.className = `priority-badge ${levelClass}`;
+  pb.textContent = `${priorityArrow(ev.level)} ${ev.priority}`;
+  setText('metaTitle', ev.title);
+  document.getElementById('metaDesc').textContent = ev.description;
+  setText('metaTime', ev.time);
+  setText('metaDate', ev.date);
+  setText('metaLocation', ev.location);
+  setText('metaZone', ev.zone);
+  setText('metaSensors', ev.sensors);
+  document.getElementById('metaStatus').innerHTML = ev.status === 'Open'
+    ? '<span style="color:var(--warning);font-weight:600;">Open</span>'
+    : '<span style="color:var(--online);font-weight:600;">Resolved</span>';
+  document.getElementById('metaPriority').innerHTML = `<span class="priority-badge ${levelClass}">${priorityArrow(ev.level)} ${ev.priority}</span>`;
+  document.getElementById('metaEventType').innerHTML = ev.types.map(t => `<span class="tag ${t.toLowerCase()}">${t}</span>`).join(' ');
+  document.getElementById('metaFWLevel').innerHTML = `<span class="fw-badge ${levelClass==='escalate'?'esc':levelClass==='challenge'?'chal':'obs'}">${ev.level}</span>`;
+  setText('detailTimestamp', `${ev.date} ${ev.time}`);
+  document.getElementById('evidenceTotal').textContent = ev.clips || 1;
+  document.getElementById('evDot2').style.display = ev.clips >= 2 ? 'block' : 'none';
+
+  // Snapshot: cloud events show stored snapshot, else live VAPIX
+  if (ev.cloudSource && ev.snapshotId && FW_CLOUD_URL) {
+    document.getElementById('detailSnapshot').src = `${FW_CLOUD_URL}/api/snapshots/${ev.snapshotId}?token=${FW_CLOUD_TOKEN}`;
+  } else {
+    document.getElementById('detailSnapshot').src = getSnapshotUrl(1);
+  }
+
+  // Threat score + recommended action
+  setText('metaThreatScore', ev.threatScore !== undefined ? `${ev.threatScore}/100` : '—');
+  setText('metaAction', ev.recommendedAction || '—');
+
+  // Cloud feedback row — only for cloud-sourced events
+  const feedRow = document.getElementById('feedbackRow');
+  feedRow.style.display = ev.cloudSource ? 'flex' : 'none';
+
+  // Reasoning Council panel
+  const panel = document.getElementById('councilPanel');
+  if (ev.cloudSource && (ev.narrative || ev.seatsUsed?.length)) {
+    panel.style.display = 'block';
+    document.getElementById('councilNarrative').textContent = ev.narrative || ev.description;
+    const seatColors = { eyes:'#a78bfa', analyst:'#60a5fa', agent:'#34d399', narrator:'#f59e0b' };
+    document.getElementById('councilSeats').innerHTML = (ev.seatsUsed || []).map(s => `
+      <span style="background:rgba(0,0,0,0.3);border:1px solid ${seatColors[s]||'var(--border)'};color:${seatColors[s]||'var(--text-mid)'};
+        border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">
+        ${s === 'eyes' ? '👁' : s === 'analyst' ? '🧠' : s === 'agent' ? '⚡' : '📝'} ${s}
+      </span>`).join('');
+  } else {
+    panel.style.display = 'none';
+  }
+
+  showSection('detail');
+  // Draw bounding boxes (onload also fires, this covers cached images).
+  setTimeout(drawDetailBoxes, 60);
+}
+
+function switchDetailTab(tab) {
+  ['event','notif','hist'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+  });
+  document.getElementById('detailEventTab').style.display = tab === 'event' ? 'grid' : 'none';
+}
+
+function changeEvidence(dir) { toast(`Switching to evidence clip ${dir > 0 ? 'next' : 'previous'}`); }
+
+/* ══════════════════════════════════════════════════════════════
+   CAMERA FLEET — synced cameras + mesh status
+══════════════════════════════════════════════════════════════ */
+async function loadFleet() {
+  // This camera always shows, even in offline-only (no cloud) mode.
+  const model = deviceInfo.model && deviceInfo.model !== '—' ? deviceInfo.model : 'P3268-LVE';
+  const serial = deviceInfo.serial && deviceInfo.serial !== '—' ? deviceInfo.serial : '';
+  const thisCamId = serial ? `${model.replace(/\s+/g,'')}-${serial}` : model;
+  setText('fleetThisCam', thisCamId);
+
+  let reg = [];
+  if (FW_CLOUD_URL) reg = await cloudGet(`/api/cameras?token=${FW_CLOUD_TOKEN}`) || [];
+  fleetCameras = Array.isArray(reg) ? reg : [];
+
+  // Ensure this camera is represented
+  if (!fleetCameras.some(c => c.camera_id === thisCamId)) {
+    fleetCameras.unshift({
+      camera_id: thisCamId, site: 'Home Test Lab',
+      zone: 'local', model: model,
+      firmware: deviceInfo.firmware || '—', status: 'online',
+      last_seen: new Date().toISOString(), event_count: events.length, _self: true
+    });
+  }
+
+  const online = fleetCameras.filter(c => c.status === 'online').length;
+  setText('fleetTotal', fleetCameras.length.toString());
+  setText('fleetOnline', online.toString());
+  setText('fleetSub', FW_CLOUD_URL ? 'Synced via cloud relay' : 'Local only — cloud not configured');
+  setText('fleetMeshSub', FW_CLOUD_URL ? FW_CLOUD_URL.replace(/https?:\/\//,'').split('/')[0] : 'offline');
+  const badge = document.getElementById('badge-fleet');
+  if (badge) badge.textContent = fleetCameras.length.toString();
+
+  renderFleet();
+}
+
+function renderFleet() {
+  const grid = document.getElementById('fleetGrid');
+  if (!grid) return;
+  if (fleetCameras.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">⛁</div><div class="msg">No cameras synced yet.</div></div>`;
+    return;
+  }
+  grid.innerHTML = fleetCameras.map(c => {
+    const status = c.status || 'unknown';
+    const last   = c.last_seen ? timeAgo(new Date(c.last_seen)) : 'never';
+    const thumb  = c._self ? getSnapshotUrl(1) : '';
+    return `<div class="fleet-card" onclick="inspectCamera('${c.camera_id}')">
+      ${thumb ? `<img class="fleet-thumb" src="${thumb}" alt="${c.camera_id}" onerror="this.style.display='none'">`
+              : `<div class="fleet-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:24px;">📷</div>`}
+      <div class="fleet-body">
+        <div class="fleet-name">
+          <span class="fleet-dot ${status}"></span>${c.camera_id}${c._self ? ' <span style="font-size:9px;color:var(--accent)">(this camera)</span>' : ''}
+        </div>
+        <div class="fleet-meta">
+          Model: ${c.model || '—'} · Zone: ${c.zone || '—'}<br>
+          Site: ${c.site || '—'} · Events: ${c.event_count ?? 0}<br>
+          ${status === 'online' ? '🟢 Communicating' : '⚪ ' + status} · last seen ${last}
+        </div>
+        <span class="fleet-link">View camera events →</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function inspectCamera(camId) {
+  // Filter activity to this camera and jump there
+  document.getElementById('actSearchInput').value = camId;
+  showSection('activity');
+  renderActivityTable();
+  toast(`Showing events for ${camId}`);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   VIDEO REPLAY — clip gallery + bounding-box overlay + AI threads
+══════════════════════════════════════════════════════════════ */
+function replayFrameUrl(ev) {
+  if (ev.cloudSource && ev.snapshotId && FW_CLOUD_URL)
+    return `${FW_CLOUD_URL}/api/snapshots/${ev.snapshotId}?token=${FW_CLOUD_TOKEN}`;
+  return getSnapshotUrl(1);  // local replay → live camera frame
+}
+
+function replayPool() {
+  let pool = events.filter(e => (e.cloudSource && e.snapshotId) || e.localReplay);
+  if (replayFilter === 0) pool = pool.filter(e => e.level === 'ESCALATE' || e.severity === 'HIGH');
+  const q = (document.getElementById('replaySearch')?.value || '').toLowerCase();
+  if (q) pool = pool.filter(e =>
+    (e.title||'').toLowerCase().includes(q) ||
+    (e.zone||'').toLowerCase().includes(q) ||
+    (e.sensors||'').toLowerCase().includes(q));
+  return pool.sort((a,b) => b.ts - a.ts);
+}
+
+function cycleReplayFilter() {
+  replayFilter = (replayFilter + 1) % REPLAY_FILTERS.length;
+  setText('replayFilterLabel', REPLAY_FILTERS[replayFilter]);
+  renderReplayGallery();
+}
+
+function renderReplayGallery() {
+  const list = document.getElementById('replayList');
+  if (!list) return;
+  const pool = replayPool();
+  setText('replayCount', pool.length.toString());
+  if (pool.length === 0) {
+    list.innerHTML = `<div class="empty-state" style="padding:30px 10px;"><div class="icon">⎌</div>
+      <div class="msg">No reviewed clips yet. HIGH events with a snapshot appear here.</div></div>`;
+    return;
+  }
+  list.innerHTML = pool.map(e => {
+    const thumb = replayFrameUrl(e);
+    const active = currentReplay && currentReplay.id === e.id ? 'active' : '';
+    return `<div class="replay-clip ${active}" onclick="selectReplay('${e.id}')">
+      <img class="thumb" src="${thumb}" onerror="this.style.visibility='hidden'">
+      <div style="min-width:0;">
+        <div class="ci-title">${e.title}</div>
+        <div class="ci-meta">${priorityArrow(e.level)} ${e.zone} · ${e.time} · score ${e.threatScore ?? '—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // Auto-select first if nothing selected
+  if (!currentReplay && pool.length) selectReplay(pool[0].id);
+}
+
+function selectReplay(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  currentReplay = ev;
+  document.getElementById('replayEmpty').style.display = 'none';
+  document.getElementById('replayHud').style.display = 'flex';
+  document.getElementById('replayControls').style.display = 'flex';
+  document.getElementById('replayNarration').style.display = 'block';
+  setText('replayHudLabel', `${ev.level} · ${ev.detectedClass || 'event'}`);
+  setText('replayHudTime', `${ev.date} ${ev.time}`);
+  document.getElementById('replayImg').src = replayFrameUrl(ev);
+
+  // Narration
+  setText('replayNarrText', ev.narrative || ev.description || 'No AI narration available.');
+
+  // Candidate threads — load lazily if not present
+  renderCandidates(ev);
+  if ((!ev.candidates || ev.candidates.length === 0) && ev.cloudId) loadCandidates(ev);
+
+  // Dispatch buttons
+  renderDispatch(ev);
+  renderReplayGallery();   // refresh active highlight
+}
+
+async function loadCandidates(ev) {
+  const data = await cloudGet(`/api/events/${ev.cloudId}/candidates?token=${FW_CLOUD_TOKEN}`);
+  if (data && Array.isArray(data.candidates)) {
+    ev.candidates = data.candidates;
+    if (currentReplay && currentReplay.id === ev.id) renderCandidates(ev);
+  }
+}
+
+function renderCandidates(ev) {
+  const box = document.getElementById('replayCandidates');
+  const cands = ev.candidates || [];
+  if (cands.length === 0) {
+    box.innerHTML = `<div style="font-size:11px;color:var(--text-dim);">Single-model narration (multi-candidate threads generate on HIGH cloud events).</div>`;
+    setText('replaySelModel', '');
+    return;
+  }
+  const selModel = (cands.find(c => c.selected) || {}).model || '';
+  setText('replaySelModel', selModel ? `chosen: ${selModel}` : '');
+  box.innerHTML = cands.map((c,i) => `
+    <div class="cand-thread ${c.selected ? 'selected' : ''}" onclick="pickCandidate(${i})">
+      <div class="cand-model">🧠 ${c.model || 'model'} ${c.selected ? '<span class="cand-pick">✓ AI pick</span>' : ''}</div>
+      <div>${c.text || `<span style="color:var(--text-dim)">(no output${c.error ? ': '+c.error : ''})</span>`}</div>
+    </div>`).join('');
+}
+
+function pickCandidate(i) {
+  if (!currentReplay || !currentReplay.candidates) return;
+  const c = currentReplay.candidates[i];
+  if (!c || !c.text) return;
+  currentReplay.candidates.forEach((x,j) => x.selected = (j === i));
+  currentReplay.narrative = c.text;
+  setText('replayNarrText', c.text);
+  renderCandidates(currentReplay);
+  toast(`Using ${c.model} narration for dispatch`);
+}
+
+function renderDispatch(ev) {
+  const row = document.getElementById('replayDispatch');
+  const chans = [
+    ['slack','Slack','💬'], ['teams','Teams','🟦'], ['sms','SMS','✉'],
+    ['voice','Call','📞'], ['vms','VMS','🖥'], ['emergency','911','🚨'],
+  ];
+  row.innerHTML = chans.map(([key,label,icon]) => {
+    const avail = channelStatus[key];
+    const danger = key === 'emergency' ? 'danger' : '';
+    return `<button class="dispatch-btn ${danger} ${avail?'armed':''}" onclick="dispatchAlert('${key}')">
+      ${icon} ${label} ${avail ? '' : '<span class="ch-off">offline</span>'}
+    </button>`;
+  }).join('');
+}
+
+async function dispatchAlert(channel) {
+  if (!currentReplay) return;
+  if (channel === 'emergency' && !confirm('Trigger EMERGENCY 911 dispatch via RapidSOS? Only for genuine emergencies.')) return;
+  if (!FW_CLOUD_URL || !currentReplay.cloudId) {
+    toast(`(demo) Would dispatch via ${channel.toUpperCase()} — connect cloud backend to send for real`);
+    return;
+  }
+  toast(`Dispatching via ${channel}…`);
+  const res = await cloudPost(`/api/notify?token=${FW_CLOUD_TOKEN}`, {
+    event_id: currentReplay.cloudId,
+    channels: [channel],
+  });
+  if (res && res.ok) {
+    const r = res.results?.[channel];
+    const ok = r && !r.error && !r.skipped;
+    toast(ok ? `✓ Sent via ${channel}` : `${channel}: ${r?.skipped || r?.error || 'not configured'}`);
+  } else {
+    toast(`Dispatch failed for ${channel}`);
+  }
+}
+
+/* ── Bounding boxes on the event-detail snapshot ── */
+function drawDetailBoxes() {
+  const img = document.getElementById('detailSnapshot');
+  const canvas = document.getElementById('detailCanvas');
+  if (!img || !canvas || !currentDetail) return;
+  drawBoxesOnCanvas(canvas, img, currentDetail.boundingBoxes || []);
+}
+
+/* Shared box painter for any image+canvas pair */
+function drawBoxesOnCanvas(canvas, img, boxes) {
+  const W = img.clientWidth, H = img.clientHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if (!boxes || boxes.length === 0) return;
+  const natW = img.naturalWidth || 1, natH = img.naturalHeight || 1;
+  const scale = Math.min(W/natW, H/natH);
+  const dispW = natW*scale, dispH = natH*scale;
+  const offX = (W-dispW)/2, offY = (H-dispH)/2;
+  boxes.forEach(b => {
+    const cx = b.x ?? 0, cy = b.y ?? 0, bw = b.w ?? 0, bh = b.h ?? 0;
+    const x = offX + (cx - bw/2)*scale, y = offY + (cy - bh/2)*scale;
+    const w = bw*scale, h = bh*scale;
+    const label = (b.label || 'object').toLowerCase();
+    const isThreat = /gun|weapon|knife|firearm|pistol|rifle|intruder|fire|smoke/.test(label);
+    const isPerson = /person|people|human|man|woman/.test(label);
+    const color = isThreat ? '#ef4444' : isPerson ? '#f59e0b' : '#3b82f6';
+    ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.strokeRect(x,y,w,h);
+    const tag = `${b.label||'object'} ${b.confidence?Math.round(b.confidence*100)+'%':''}`.trim();
+    ctx.font = '11px system-ui, sans-serif';
+    const tw = ctx.measureText(tag).width + 10;
+    ctx.fillStyle = color; ctx.fillRect(x, Math.max(0,y-16), tw, 16);
+    ctx.fillStyle = '#fff'; ctx.fillText(tag, x+5, Math.max(11, y-4));
+  });
+}
+
+/* ── Bounding-box rendering on the replay canvas ── */
+function drawReplayBoxes() {
+  const img = document.getElementById('replayImg');
+  const canvas = document.getElementById('replayCanvas');
+  if (!img || !canvas || !currentReplay) return;
+  const showBoxes = document.getElementById('replayBoxToggle')?.checked;
+  drawBoxesOnCanvas(canvas, img, showBoxes ? (currentReplay.boundingBoxes || []) : []);
+}
+
+let replayPlaying = false, replayTimer = null, replayProgress = 0;
+function toggleReplayPlay() {
+  replayPlaying = !replayPlaying;
+  document.getElementById('replayPlayBtn').textContent = replayPlaying ? '❚❚' : '▶';
+  if (replayPlaying) {
+    replayTimer = setInterval(() => {
+      replayProgress = (replayProgress + 2) % 101;
+      document.getElementById('replayScrub').value = replayProgress;
+      scrubReplay(replayProgress);
+      if (replayProgress === 0) { toggleReplayPlay(); }
+    }, 120);
+  } else if (replayTimer) { clearInterval(replayTimer); }
+}
+function scrubReplay(v) {
+  const secs = Math.round((v/100) * 8);  // model a ~8s clip around the event
+  setText('replayClock', `00:0${Math.min(8,secs)}`.slice(-5));
+}
+
+/* ── Notification channel status chips ── */
+function renderChannelStatus(channels) {
+  channelStatus = channels || {};
+  const targets = ['channelStatusBox'];
+  const chans = [
+    ['teams','Teams'], ['slack','Slack'], ['sms','SMS'],
+    ['voice','Voice'], ['vms','VMS'], ['emergency','911'],
+  ];
+  const html = chans.map(([k,label]) => {
+    const on = channelStatus[k];
+    return `<span class="ch-chip ${on?'on':''}"><span class="ch-led"></span>${label}</span>`;
+  }).join('');
+  targets.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = html; });
+  // Refresh dispatch buttons if a replay is open
+  if (currentReplay) renderDispatch(currentReplay);
+}
+
+// ── All Activity Table ───────────────────────────────────────
+function renderActivityTable() {
+  const q = (document.getElementById('actSearchInput')?.value || '').toLowerCase();
+  const evList = events.filter(e => !q || e.title.toLowerCase().includes(q) || (e.description||'').toLowerCase().includes(q));
+  setText('activityCount', evList.length.toString());
+  document.getElementById('activityTableBody').innerHTML = evList.map(ev => {
+    const levelClass = ev.level.toLowerCase();
+    return `<tr>
+      <td><input type="checkbox"></td>
+      <td><span class="priority-badge ${levelClass}" style="font-size:10px;">${priorityArrow(ev.level)} ${ev.priority}</span></td>
+      <td>
+        <div class="title-cell" onclick="openDetail('${ev.id}')">${ev.title}</div>
+        <div class="desc-cell">${(ev.description||'').substring(0,60)}…</div>
+      </td>
+      <td style="white-space:nowrap;color:var(--text-mid);font-size:11px;">${ev.date}<br>${ev.time}</td>
+      <td style="font-size:11px;color:var(--text-mid);">${ev.location}</td>
+      <td>${ev.types.map(t=>`<span class="tag ${t.toLowerCase()}">${t}</span>`).join(' ')}</td>
+      <td><span class="${ev.status==='Resolved'?'status-resolved':'status-open'}">${ev.status}</span></td>
+      <td>
+        <span class="tbl-action-link" onclick="toast('Exporting…')">Export</span>
+        <span class="tbl-action-link" onclick="openDetail('${ev.id}')">View</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── AI Intel ─────────────────────────────────────────────────
+function updateAIIntel() {
+  const open = events.filter(e => e.status === 'Open');
+  const score = Math.min(100, open.filter(e => e.level==='ESCALATE').length * 35
+    + open.filter(e => e.level==='CHALLENGE').length * 15
+    + open.filter(e => e.level==='OBSERVE').length * 5);
+
+  setText('aiAbnScore', score.toString());
+  document.getElementById('aiAbnBar').style.width = score + '%';
+
+  let label = 'Low — Normal operations', color = 'var(--observe)';
+  if (score >= 70) { label = 'High — Immediate attention required'; color = 'var(--escalate)'; }
+  else if (score >= 40) { label = 'Elevated — Security review recommended'; color = 'var(--challenge)'; }
+  setText('aiAbnLabel', label);
+  document.getElementById('aiAbnBar').style.background = color;
+
+  const recent = events.slice(0, 4);
+  document.getElementById('aiDescList').innerHTML = recent.map(ev => `
+    <div style="padding:10px 12px; background:var(--bg); border-radius:8px; border:1px solid var(--border);">
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+        <span class="fw-badge ${ev.level==='ESCALATE'?'esc':ev.level==='CHALLENGE'?'chal':'obs'}">${ev.level}</span>
+        <span style="font-size:11px; color:var(--text-mid);">${ev.date} ${ev.time}</span>
+      </div>
+      <div style="font-size:12px; color:var(--text); line-height:1.6;">${ev.description}</div>
+    </div>
+  `).join('');
+
+  // Scene summary
+  const sceneObjs = ['humans', 'vehicles'];
+  const sceneTags = aoaScenarios.length > 0
+    ? aoaScenarios.map(s => s.name || s.type).join(', ')
+    : 'Human detection, Motion in area, Fence crossing';
+  document.getElementById('aiSceneSummary').textContent =
+    open.length === 0
+      ? 'No active events. Scene is clear. Monitoring all zones for motion, occupancy, and fence crossings.'
+      : `${open.length} active event(s) require attention. ${open.filter(e=>e.level==='ESCALATE').length} escalated. Monitoring: ${sceneTags}.`;
+
+  document.getElementById('aiObjectTags').innerHTML = sceneObjs.map(o =>
+    `<span style="background:var(--observe-bg);color:var(--observe);border:1px solid rgba(59,130,246,0.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;">${o}</span>`
+  ).join('');
+
+  // Council seat breakdown (cloud events only)
+  const cloudEvs = events.filter(e => e.cloudSource && e.seatsUsed);
+  if (cloudEvs.length > 0) {
+    document.getElementById('councilActivityCard').style.display = 'block';
+    const seatDefs = [
+      { key:'eyes',     label:'EYES',     icon:'👁', color:'#a78bfa', desc:'Gemini Vision' },
+      { key:'analyst',  label:'ANALYST',  icon:'🧠', color:'#60a5fa', desc:'Llama 4 Maverick' },
+      { key:'agent',    label:'AGENT',    icon:'⚡', color:'#34d399', desc:'Hermes 3' },
+      { key:'narrator', label:'NARRATOR', icon:'📝', color:'#f59e0b', desc:'GPT-4.1 mini' },
+    ];
+    const avgScore = cloudEvs.reduce((s,e) => s + (e.threatScore||0), 0) / cloudEvs.length;
+    document.getElementById('councilSeatGrid').innerHTML = seatDefs.map(seat => {
+      const fired = cloudEvs.filter(e => e.seatsUsed.includes(seat.key)).length;
+      const pct   = Math.round(fired / cloudEvs.length * 100);
+      return `
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:4px;">${seat.icon}</div>
+          <div style="font-size:10px;font-weight:700;color:${seat.color};letter-spacing:0.5px;">${seat.label}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px;">${seat.desc}</div>
+          <div style="font-size:22px;font-weight:800;color:#fff;">${pct}%</div>
+          <div style="font-size:10px;color:var(--text-dim);">${fired}/${cloudEvs.length} events</div>
+          <div style="margin-top:6px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${seat.color};border-radius:2px;transition:width 0.5s;"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
+
+// ── Group Behavior ────────────────────────────────────────────
+function updateGroupBehavior() {
+  setText('gbPeopleCount', '—');
+  setText('gbGroupEvents', events.filter(e => e.types.includes('Security') && Date.now()-e.ts<86400000).length.toString());
+  setText('gbDwellTime',   '—');
+  document.getElementById('gbPatterns').innerHTML = [
+    {label:'Tailgating at access point',  count:1, level:'ESCALATE'},
+    {label:'Loitering near entrance',     count:2, level:'CHALLENGE'},
+    {label:'Group gathering in lobby',    count:3, level:'OBSERVE'},
+  ].map(p => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:7px;border:1px solid var(--border);">
+      <span style="font-size:12px;color:var(--text);">${p.label}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--text-dim);">${p.count}x</span>
+        <span class="fw-badge ${p.level==='ESCALATE'?'esc':p.level==='CHALLENGE'?'chal':'obs'}">${p.level}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── Modals ───────────────────────────────────────────────────
+function openSensorModal() { document.getElementById('sensorModal').classList.add('open'); }
+function closeSensorModal(){ document.getElementById('sensorModal').classList.remove('open'); }
+document.getElementById('sensorModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSensorModal();
+});
+
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── Utility ──────────────────────────────────────────────────
+function setText(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function fmtTime(d) { return d.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function timeAgo(d) {
+  const s = Math.round((Date.now()-d.getTime())/1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s/60)}m ago`;
+  return `${Math.round(s/3600)}h ago`;
+}
+function humanDuration(ms) {
+  const s = Math.round(ms/1000);
+  const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60);
+  const parts = [];
+  if(d) parts.push(`${d} day${d!==1?'s':''}`);
+  if(h) parts.push(`${h} hour${h!==1?'s':''}`);
+  if(m) parts.push(`${m} minute${m!==1?'s':''}`);
+  return parts.join(' ') || 'just now';
+}
+function priorityArrow(level) {
+  if (level==='ESCALATE') return '↑';
+  if (level==='CHALLENGE') return '→';
+  return '↓';
+}
+
+// ── Refresh ───────────────────────────────────────────────────
+async function refreshAll() {
+  await Promise.all([loadDeviceInfo(), loadAOAScenarios(), loadCameraHealth()]);
+  renderAlerts();
+  renderActivityTable();
+  updateAIIntel();
+  updateGroupBehavior();
+  updateBadges();
+}
+
+// ── Live clock ────────────────────────────────────────────────
+function tickClocks() {
+  const now = new Date();
+  document.querySelectorAll('[id^="liveTime-"]').forEach(el => {
+    el.textContent = fmtTime(now);
+  });
+}
+
+// ── Snapshot refresh (live view only) ────────────────────────
+function refreshLiveSnapshots() {
+  if (!document.getElementById('section-liveview').classList.contains('active')) return;
+  document.querySelectorAll('.live-cam img').forEach((img, i) => {
+    img.src = getSnapshotUrl(i + 1) + '&_=' + Date.now();
+  });
+}
+
+// ── Boot ─────────────────────────────────────────────────────
+(async function boot() {
+  loadEvents();
+  renderAlerts();
+  renderActivityTable();
+  updateBadges();
+
+  await refreshAll();
+
+  updateAIIntel();
+  updateGroupBehavior();
+
+  setText('monitorSub', `${deviceInfo.model || 'Camera'} — ${new Date().toLocaleDateString()}`);
+  setText('cfgSDCard', 'Surveillance-rated');
+
+  // Cloud backend integration
+  if (FW_CLOUD_URL) {
+    const dot = document.getElementById('cloudDot');
+    const ind = document.getElementById('cloudIndicator');
+    ind.textContent = 'Cloud: connecting…';
+    if (dot) dot.style.background = 'var(--warning)';
+    await loadCloudEvents();
+    await loadFleet();
+    document.getElementById('cloudStatsCard').style.display = 'block';
+    setText('cfgCloudPush', FW_CLOUD_URL.replace(/https?:\/\//, '').split('/')[0]);
+    document.getElementById('httpsPushStatus').textContent = 'Configured';
+    document.getElementById('httpsPushStatus').style.color = 'var(--online)';
+    if (dot) dot.style.background = 'var(--online)';
+    setInterval(loadCloudEvents, CLOUD_POLL_MS);
+  } else {
+    document.getElementById('cloudIndicator').textContent = 'Cloud: not configured';
+    // Offline mode — still show this camera in the fleet badge.
+    const badge = document.getElementById('badge-fleet');
+    if (badge) badge.textContent = '1';
+  }
+
+  // Redraw bounding boxes when the layout changes.
+  window.addEventListener('resize', () => { drawReplayBoxes(); drawDetailBoxes(); });
+
+  setInterval(refreshAll, POLL_INTERVAL_MS);
+  setInterval(() => { updateAIIntel(); updateGroupBehavior(); renderActivityTable(); }, POLL_INTERVAL_MS);
+  setInterval(refreshLiveSnapshots, 5000);
+  setInterval(tickClocks, 1000);
+})();
+</script>
+</body>
+</html>
